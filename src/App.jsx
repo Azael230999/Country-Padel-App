@@ -24,11 +24,13 @@ const seedStudents = () => [
     telefono: "999 123 4567",
     miembroDesde: "Marzo 2025",
     fisico: "Molestia leve en el codo derecho — en seguimiento.",
+    modalidad: "paquete",
     paquete: { nombre: "Paquete 8 clases", total: 8, usadas: 6, vence: "2026-08-05", finalizado: false },
     paquetesAnteriores: [
       { periodo: "02 may — 28 jun", nombre: "Paquete 8 clases", clases: 8 },
     ],
     asistencias: ["2026-07-02", "2026-07-05", "2026-07-08", "2026-07-12", "2026-07-19", "2026-07-24"],
+    clasesPagadas: [],
     sesiones: [
       { fecha: "2026-07-24", enfoque: "Remate y definición en red", ejercicios: "Remate cruzado x3 series\nVolea-remate con feed" },
     ],
@@ -113,9 +115,11 @@ export default function CountryPadelApp() {
       telefono: "",
       miembroDesde: "",
       fisico: "",
+      modalidad: "paquete",
       paquete: { nombre: "Sin paquete activo", total: 0, usadas: 0, vence: "", finalizado: true },
       paquetesAnteriores: [],
       asistencias: [],
+      clasesPagadas: [],
       sesiones: [],
       puntos: [],
       objetivos: [],
@@ -293,8 +297,17 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
           {filtrados.length === 0 && <div style={styles.empty}>No hay alumnos que coincidan.</div>}
           {filtrados.map((s) => {
-            const restantes = s.paquete.finalizado ? 0 : s.paquete.total - s.paquete.usadas;
-            const alerta = !s.paquete.finalizado && restantes <= 1;
+            let tagText, alerta;
+            if ((s.modalidad || "paquete") === "porClase") {
+              const clasesPagadas = s.clasesPagadas || [];
+              const pendientes = s.asistencias.filter((d) => !clasesPagadas.includes(d)).length;
+              tagText = pendientes > 0 ? `${pendientes} pendiente${pendientes !== 1 ? "s" : ""}` : "al día";
+              alerta = pendientes > 0;
+            } else {
+              const restantes = s.paquete.finalizado ? 0 : s.paquete.total - s.paquete.usadas;
+              tagText = s.paquete.finalizado ? "sin paquete" : `${restantes} clase${restantes !== 1 ? "s" : ""}`;
+              alerta = !s.paquete.finalizado && restantes <= 1;
+            }
             return (
               <button key={s.id} onClick={() => onSelect(s.id)} style={styles.row}>
                 <div style={styles.avatar}>{s.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>
@@ -304,7 +317,7 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ ...styles.restantesTag, color: alerta ? COLORS.red : COLORS.muted }}>
-                    {s.paquete.finalizado ? "sin paquete" : `${restantes} clase${restantes !== 1 ? "s" : ""}`}
+                    {tagText}
                   </span>
                   {alerta && <span style={styles.alertaDot} />}
                 </div>
@@ -319,6 +332,11 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
 
 function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
   const restantes = alumno.paquete.finalizado ? 0 : alumno.paquete.total - alumno.paquete.usadas;
+  const modalidad = alumno.modalidad || "paquete";
+  const clasesPagadas = alumno.clasesPagadas || [];
+  const clasesOrdenadas = [...alumno.asistencias].sort().reverse();
+  const pagadasTotal = clasesOrdenadas.filter((d) => clasesPagadas.includes(d)).length;
+  const pendientesTotal = clasesOrdenadas.length - pagadasTotal;
 
   const removeAt = (listKey, index) => {
     onUpdate({ [listKey]: alumno[listKey].filter((_, i) => i !== index) });
@@ -533,6 +551,22 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
 
         {tab === "asistencia" && (
           <div style={styles.section}>
+            <div style={styles.segmented}>
+              <button
+                style={{ ...styles.segmentBtn, ...(modalidad === "paquete" ? styles.segmentBtnActive : {}) }}
+                onClick={() => onUpdate({ modalidad: "paquete" })}
+              >
+                Paquete
+              </button>
+              <button
+                style={{ ...styles.segmentBtn, ...(modalidad === "porClase" ? styles.segmentBtnActive : {}) }}
+                onClick={() => onUpdate({ modalidad: "porClase" })}
+              >
+                Pago por clase
+              </button>
+            </div>
+
+            {modalidad === "paquete" && (
             <div style={styles.card}>
               <div style={styles.paqueteTop}>
                 <div>
@@ -590,6 +624,42 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                 </div>
               )}
             </div>
+            )}
+
+            {modalidad === "porClase" && (
+            <div style={styles.card}>
+              <div style={styles.cardLabel}>Pago por clase</div>
+              <div style={styles.pagoResumen}>
+                <span style={styles.pagoResumenPagadas}>{pagadasTotal} pagada{pagadasTotal !== 1 ? "s" : ""}</span>
+                {pendientesTotal > 0 && (
+                  <span style={styles.pagoResumenPendientes}>{pendientesTotal} pendiente{pendientesTotal !== 1 ? "s" : ""}</span>
+                )}
+              </div>
+              {clasesOrdenadas.length === 0 && <div style={styles.empty}>Aún no hay clases registradas.</div>}
+              {clasesOrdenadas.map((d) => {
+                const pagada = clasesPagadas.includes(d);
+                return (
+                  <div key={d} style={styles.pagoRow}>
+                    <span style={styles.pagoFecha}>{fmt(d)}</span>
+                    <button
+                      style={{
+                        ...styles.pagoChip,
+                        background: pagada ? COLORS.lime : "transparent",
+                        color: pagada ? COLORS.ink : COLORS.amber,
+                        border: pagada ? "none" : `1.5px solid ${COLORS.amber}`,
+                      }}
+                      onClick={() => {
+                        const next = pagada ? clasesPagadas.filter((x) => x !== d) : [...clasesPagadas, d];
+                        onUpdate({ clasesPagadas: next });
+                      }}
+                    >
+                      {pagada ? "Pagada" : "Pendiente"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            )}
 
             <div style={styles.card}>
               <div style={styles.cardLabel}>Asistencia — {hoy.toLocaleDateString("es-MX", { month: "long", year: "numeric" })}</div>
@@ -835,6 +905,15 @@ const styles = {
   matchDate: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.muted },
   ejercicioList: { margin: "8px 0 0", paddingLeft: 18 },
   ejercicioItem: { fontSize: 12.5, color: "#5C6D67", lineHeight: 1.6 },
+  segmented: { display: "flex", background: "#EFEAE0", borderRadius: 10, padding: 3, gap: 3 },
+  segmentBtn: { flex: 1, background: "transparent", border: "none", borderRadius: 8, padding: "8px 0", fontSize: 12.5, fontWeight: 600, color: COLORS.muted, cursor: "pointer", fontFamily: "'Archivo', sans-serif" },
+  segmentBtnActive: { background: COLORS.card, color: COLORS.ink, fontWeight: 700, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" },
+  pagoResumen: { display: "flex", gap: 10, marginBottom: 6 },
+  pagoResumenPagadas: { fontSize: 12.5, fontWeight: 700, color: COLORS.ink },
+  pagoResumenPendientes: { fontSize: 12.5, fontWeight: 700, color: COLORS.amber },
+  pagoRow: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: `1px solid #F0EDE3` },
+  pagoFecha: { fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, color: COLORS.ink },
+  pagoChip: { fontSize: 11, fontWeight: 700, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: "'Archivo', sans-serif" },
   paqueteTop: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" },
   paqueteVence: { fontSize: 11.5, color: COLORS.muted, marginTop: 2 },
   paqueteBarWrap: { marginTop: 12 },
