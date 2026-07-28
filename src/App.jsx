@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { storage } from "./storage.js";
 
 const COLORS = {
@@ -49,15 +49,21 @@ const seedStudents = () => [
 ];
 
 async function loadStudents() {
+  let raw;
   try {
-    const res = await storage.get("students", false);
-    return JSON.parse(res.value);
+    raw = (await storage.get("students", false)).value;
   } catch (e) {
     const seed = seedStudents();
     try {
       await storage.set("students", JSON.stringify(seed), false);
     } catch (e2) {}
     return seed;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error("No se pudieron leer los datos guardados, están dañados.", e);
+    return seedStudents();
   }
 }
 
@@ -120,11 +126,19 @@ export default function CountryPadelApp() {
     setShowNuevoAlumno(false);
   };
 
+  const deleteStudent = (id) => {
+    persist(students.filter((s) => s.id !== id));
+    setSelectedId(null);
+    setView("directorio");
+  };
+
   if (!students) {
     return (
-      <div style={styles.app}>
+      <div style={styles.app} className="app-shell">
         <style>{fontImport}</style>
-        <div style={{ color: COLORS.bg, fontFamily: "'Archivo', sans-serif" }}>Cargando…</div>
+        <div style={styles.loadingBox} className="phone-shell">
+          <div className="spinner" style={styles.spinner} />
+        </div>
       </div>
     );
   }
@@ -151,6 +165,7 @@ export default function CountryPadelApp() {
             showNuevoAlumno={showNuevoAlumno}
             setShowNuevoAlumno={setShowNuevoAlumno}
             addStudent={addStudent}
+            onImportAll={persist}
           />
         )}
         {view === "perfil" && selected && (
@@ -160,6 +175,7 @@ export default function CountryPadelApp() {
             setTab={setTab}
             onBack={() => setView("directorio")}
             onUpdate={(patch) => updateStudent(selected.id, patch)}
+            onDelete={() => deleteStudent(selected.id)}
           />
         )}
       </div>
@@ -167,12 +183,44 @@ export default function CountryPadelApp() {
   );
 }
 
-function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno, setShowNuevoAlumno, addStudent }) {
+function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno, setShowNuevoAlumno, addStudent, onImportAll }) {
   const [nombre, setNombre] = useState("");
   const [grupo, setGrupo] = useState("");
   const [nivel, setNivel] = useState("");
+  const [showRespaldo, setShowRespaldo] = useState(false);
+  const [importError, setImportError] = useState("");
+  const fileInputRef = useRef(null);
 
   const filtrados = students.filter((s) => s.nombre.toLowerCase().includes(busqueda.toLowerCase()));
+
+  const exportarDatos = () => {
+    const blob = new Blob([JSON.stringify(students, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const hoy = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `country-padel-backup-${hoy}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const importarDatos = (file) => {
+    setImportError("");
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!Array.isArray(data)) throw new Error("Formato inválido");
+        if (!window.confirm(`Esto reemplazará los ${students.length} alumnos actuales con ${data.length} del archivo. ¿Continuar?`)) return;
+        onImportAll(data);
+      } catch (e) {
+        setImportError("El archivo no es un respaldo válido de Country Padel.");
+      }
+    };
+    reader.readAsText(file);
+  };
 
   return (
     <>
@@ -187,9 +235,40 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
         />
       </div>
       <div style={styles.content} className="content-safe">
-        <button style={styles.secondaryBtn} onClick={() => setShowNuevoAlumno((v) => !v)}>
-          {showNuevoAlumno ? "Cancelar" : "+ Nuevo alumno"}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={{ ...styles.secondaryBtn, flex: 1 }} onClick={() => { setShowNuevoAlumno((v) => !v); setShowRespaldo(false); }}>
+            {showNuevoAlumno ? "Cancelar" : "+ Nuevo alumno"}
+          </button>
+          <button style={styles.iconBtn} onClick={() => { setShowRespaldo((v) => !v); setShowNuevoAlumno(false); }} aria-label="Respaldo de datos">
+            ⚙
+          </button>
+        </div>
+
+        {showRespaldo && (
+          <div style={{ ...styles.card, marginTop: 10 }}>
+            <div style={styles.cardLabel}>Respaldo de datos</div>
+            <p style={styles.backupHint}>Tus datos viven solo en este iPhone. Exporta un respaldo de vez en cuando, o para pasarlos a otro dispositivo.</p>
+            <button style={styles.addBtn} onClick={exportarDatos}>Exportar copia</button>
+            <button
+              style={{ ...styles.secondaryBtnSmall, width: "100%", marginTop: 7 }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Importar copia
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) importarDatos(file);
+                e.target.value = "";
+              }}
+            />
+            {importError && <div style={styles.importError}>{importError}</div>}
+          </div>
+        )}
 
         {showNuevoAlumno && (
           <div style={{ ...styles.card, marginTop: 10 }}>
@@ -238,8 +317,12 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
   );
 }
 
-function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate }) {
+function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
   const restantes = alumno.paquete.finalizado ? 0 : alumno.paquete.total - alumno.paquete.usadas;
+
+  const removeAt = (listKey, index) => {
+    onUpdate({ [listKey]: alumno[listKey].filter((_, i) => i !== index) });
+  };
 
   // --- Entrenamiento form state ---
   const [nuevaSesionEnfoque, setNuevaSesionEnfoque] = useState("");
@@ -328,6 +411,14 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate }) {
               <div style={styles.cardLabel}>Físico / lesiones</div>
               <EditableRow k="" v={alumno.fisico || "Sin observaciones"} onSave={(v) => onUpdate({ fisico: v })} multiline />
             </div>
+            <button
+              style={styles.dangerBtn}
+              onClick={() => {
+                if (window.confirm(`¿Eliminar a ${alumno.nombre}? Se borrará todo su historial y no se puede deshacer.`)) onDelete();
+              }}
+            >
+              Eliminar alumno
+            </button>
           </div>
         )}
 
@@ -341,7 +432,10 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate }) {
                     <div style={styles.objetivoTexto}>{o.texto}</div>
                     <div style={styles.objetivoPlazo}>{o.plazo}</div>
                   </div>
-                  <span style={styles.objetivoFecha}>{o.fecha}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={styles.objetivoFecha}>{o.fecha}</span>
+                    <button style={styles.deleteBtn} onClick={() => removeAt("objetivos", i)} aria-label="Eliminar objetivo">×</button>
+                  </div>
                 </div>
               ))}
               <div style={styles.miniForm}>
@@ -373,7 +467,8 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate }) {
               {alumno.puntos.map((p, i) => (
                 <div key={i} style={styles.puntoRow}>
                   <span style={{ ...styles.prioridadDot, background: p.prioridad === "Alta" ? COLORS.red : p.prioridad === "Media" ? COLORS.amber : COLORS.green }} />
-                  <span style={styles.puntoTexto}>{p.texto}</span>
+                  <span style={{ ...styles.puntoTexto, flex: 1 }}>{p.texto}</span>
+                  <button style={styles.deleteBtn} onClick={() => removeAt("puntos", i)} aria-label="Eliminar punto">×</button>
                 </div>
               ))}
               <div style={styles.miniForm}>
@@ -399,17 +494,23 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate }) {
             </div>
 
             <div style={styles.sesionesLabel}>Bitácora de clases</div>
-            {[...alumno.sesiones].reverse().map((s, i) => (
-              <div key={i} style={styles.sesionCard}>
-                <span style={styles.matchDate}>{fmt(s.fecha) || s.fecha}</span>
-                <div style={styles.sesionEnfoque}>{s.enfoque}</div>
-                {s.ejercicios && (
-                  <ul style={styles.ejercicioList}>
-                    {s.ejercicios.split("\n").filter(Boolean).map((e, j) => <li key={j} style={styles.ejercicioItem}>{e}</li>)}
-                  </ul>
-                )}
-              </div>
-            ))}
+            {alumno.sesiones.map((_, i) => i).reverse().map((i) => {
+              const s = alumno.sesiones[i];
+              return (
+                <div key={i} style={styles.sesionCard}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={styles.matchDate}>{fmt(s.fecha) || s.fecha}</span>
+                    <button style={styles.deleteBtn} onClick={() => removeAt("sesiones", i)} aria-label="Eliminar clase">×</button>
+                  </div>
+                  <div style={styles.sesionEnfoque}>{s.enfoque}</div>
+                  {s.ejercicios && (
+                    <ul style={styles.ejercicioList}>
+                      {s.ejercicios.split("\n").filter(Boolean).map((e, j) => <li key={j} style={styles.ejercicioItem}>{e}</li>)}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
             <div style={{ ...styles.card, marginTop: 4 }}>
               <div style={styles.cardLabel}>Registrar clase de hoy</div>
               <input style={styles.input} placeholder="Enfoque de la clase" value={nuevaSesionEnfoque} onChange={(e) => setNuevaSesionEnfoque(e.target.value)} />
@@ -536,24 +637,30 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate }) {
 
         {tab === "partidos" && (
           <div style={styles.section}>
-            {[...alumno.partidos].reverse().map((p, i) => (
-              <div key={i} style={styles.matchCard}>
-                <div style={styles.matchTop}>
-                  <span style={styles.matchDate}>{fmt(p.fecha) || p.fecha}</span>
-                  <span style={{ ...styles.resultChip, background: p.resu === "W" ? COLORS.lime : COLORS.border }}>
-                    {p.resu === "W" ? "GANÓ" : "PERDIÓ"}
-                  </span>
-                </div>
-                <div style={styles.rival}>{p.rival}</div>
-                <div style={styles.score}>{p.resultado}</div>
-                {p.tags && (
-                  <div style={styles.tagRow}>
-                    {p.tags.split(",").map((t) => t.trim()).filter(Boolean).map((t, j) => <span key={j} style={styles.tag}>{t}</span>)}
+            {alumno.partidos.map((_, i) => i).reverse().map((i) => {
+              const p = alumno.partidos[i];
+              return (
+                <div key={i} style={styles.matchCard}>
+                  <div style={styles.matchTop}>
+                    <span style={styles.matchDate}>{fmt(p.fecha) || p.fecha}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ ...styles.resultChip, background: p.resu === "W" ? COLORS.lime : COLORS.border }}>
+                        {p.resu === "W" ? "GANÓ" : "PERDIÓ"}
+                      </span>
+                      <button style={styles.deleteBtn} onClick={() => removeAt("partidos", i)} aria-label="Eliminar partido">×</button>
+                    </div>
                   </div>
-                )}
-                {p.nota && <p style={styles.matchNote}>{p.nota}</p>}
-              </div>
-            ))}
+                  <div style={styles.rival}>{p.rival}</div>
+                  <div style={styles.score}>{p.resultado}</div>
+                  {p.tags && (
+                    <div style={styles.tagRow}>
+                      {p.tags.split(",").map((t) => t.trim()).filter(Boolean).map((t, j) => <span key={j} style={styles.tag}>{t}</span>)}
+                    </div>
+                  )}
+                  {p.nota && <p style={styles.matchNote}>{p.nota}</p>}
+                </div>
+              );
+            })}
             <div style={styles.card}>
               <div style={styles.cardLabel}>Registrar partido</div>
               <input style={styles.input} type="date" value={pFecha} onChange={(e) => setPFecha(e.target.value)} />
@@ -584,18 +691,24 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate }) {
         {tab === "notas" && (
           <div style={styles.section}>
             <div style={styles.timeline}>
-              {[...alumno.notas].reverse().map((n, i) => (
-                <div key={i} style={styles.timelineItem}>
-                  <div style={styles.timelineDot} />
-                  <div style={{ flex: 1 }}>
-                    <div style={styles.noteTop}>
-                      <span style={styles.noteAuthor}>{n.autor}</span>
-                      <span style={styles.noteDate}>{fmt(n.fecha) || n.fecha}</span>
+              {alumno.notas.map((_, i) => i).reverse().map((i) => {
+                const n = alumno.notas[i];
+                return (
+                  <div key={i} style={styles.timelineItem}>
+                    <div style={styles.timelineDot} />
+                    <div style={{ flex: 1 }}>
+                      <div style={styles.noteTop}>
+                        <span style={styles.noteAuthor}>{n.autor}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={styles.noteDate}>{fmt(n.fecha) || n.fecha}</span>
+                          <button style={styles.deleteBtn} onClick={() => removeAt("notas", i)} aria-label="Eliminar nota">×</button>
+                        </div>
+                      </div>
+                      <p style={styles.noteText}>{n.texto}</p>
                     </div>
-                    <p style={styles.noteText}>{n.texto}</p>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div style={styles.card}>
               <div style={styles.cardLabel}>Nueva nota</div>
@@ -666,6 +779,9 @@ const fontImport = `
     }
   }
 
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { animation: spin 0.8s linear infinite; }
+
   @media (display-mode: standalone) {
     .header-safe { padding-top: max(18px, env(safe-area-inset-top)) !important; }
     .content-safe { padding-bottom: max(30px, env(safe-area-inset-bottom)) !important; }
@@ -675,6 +791,8 @@ const fontImport = `
 const styles = {
   app: { minHeight: "100vh", background: "#0F1E1C", display: "flex", justifyContent: "center", fontFamily: "'Archivo', sans-serif", padding: "24px 12px" },
   phone: { width: 390, maxWidth: "100%", background: COLORS.bg, borderRadius: 28, overflow: "hidden", boxShadow: "0 30px 60px rgba(0,0,0,0.4)", display: "flex", flexDirection: "column", height: 780, position: "relative" },
+  loadingBox: { width: 390, maxWidth: "100%", background: COLORS.bg, borderRadius: 28, boxShadow: "0 30px 60px rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", height: 780 },
+  spinner: { width: 32, height: 32, borderRadius: "50%", border: "3px solid #EFEAE0", borderTopColor: COLORS.ink },
   saveErrorBanner: { position: "absolute", top: 0, left: 0, right: 0, background: COLORS.red, color: "#fff", fontSize: 11, textAlign: "center", padding: "6px 10px", zIndex: 5 },
   header: { background: COLORS.ink, color: COLORS.bg, padding: "18px 18px 0" },
   headerTopRow: { marginBottom: 10 },
@@ -755,4 +873,9 @@ const styles = {
   secondaryBtn: { background: "transparent", border: `1.5px solid ${COLORS.ink}`, color: COLORS.ink, borderRadius: 10, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Archivo', sans-serif", width: "100%" },
   secondaryBtnSmall: { background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.muted, borderRadius: 9, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Archivo', sans-serif", flex: 1 },
   primaryBtn: { background: COLORS.ink, color: COLORS.lime, border: "none", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Archivo', sans-serif", width: "100%" },
+  iconBtn: { width: 44, flexShrink: 0, background: "transparent", border: `1.5px solid ${COLORS.ink}`, color: COLORS.ink, borderRadius: 10, fontSize: 16, cursor: "pointer" },
+  backupHint: { fontSize: 12, color: COLORS.muted, lineHeight: 1.5, margin: "0 0 10px" },
+  importError: { fontSize: 12, color: COLORS.red, marginTop: 8 },
+  deleteBtn: { background: "none", border: "none", color: COLORS.muted, fontSize: 18, lineHeight: 1, cursor: "pointer", padding: "2px 4px", flexShrink: 0 },
+  dangerBtn: { width: "100%", background: "transparent", border: `1.5px solid ${COLORS.red}`, color: COLORS.red, borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Archivo', sans-serif", marginTop: 4 },
 };
