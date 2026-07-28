@@ -18,6 +18,7 @@ import {
   removeAcademyStudent,
   watchGroupAssignments,
   saveGroupAssignments,
+  applyGroupAssignmentToStudents,
 } from "./data.js";
 
 const GRUPOS = {
@@ -29,10 +30,8 @@ const GRUPO_LABELS = Object.entries(GRUPOS).flatMap(([deporte, categorias]) =>
   categorias.map((categoria) => `${deporte} · ${categoria}`)
 );
 
-// El campo grupoKey de cada academyStudent incluye el academyId para que el
-// filtro "in" de Firestore no necesite un índice compuesto.
-function buildGrupoKey(academyId, deporte, categoria) {
-  return `${academyId}::${deporte} · ${categoria}`;
+function grupoLabel(deporte, categoria) {
+  return `${deporte} · ${categoria}`;
 }
 
 const COLORS = {
@@ -105,30 +104,19 @@ export default function CountryPadelApp() {
   const academyId = coach ? coach.academyId || authUser?.uid : null;
 
   useEffect(() => {
-    if (!authUser || !coach) return;
+    if (!authUser || !coach || !isAdmin) return;
     const unsub = watchGroupAssignments(academyId, setGroupAssignments, () => {});
     return unsub;
-  }, [authUser, coach, academyId]);
-
-  // Claves (ya combinadas con academyId) de los grupos donde este coach está asignado.
-  const misGrupoKeys = !isAdmin && groupAssignments
-    ? Object.entries(groupAssignments)
-        .filter(([, coachUids]) => (coachUids || []).includes(authUser?.uid))
-        .map(([label]) => `${academyId}::${label}`)
-    : [];
-  const misGrupoKeysJoined = misGrupoKeys.join("|");
+  }, [authUser, coach, isAdmin, academyId]);
 
   useEffect(() => {
     if (!authUser || !coach) return;
-    if (isAdmin) {
-      setAlumnosGrupo(null);
-      return watchAcademyStudentsForAdmin(academyId, setAlumnosGrupo, () => setSaveError(true));
-    }
-    if (groupAssignments === null) return; // aún cargando asignaciones
     setAlumnosGrupo(null);
-    return watchAcademyStudentsForCoach(misGrupoKeys, setAlumnosGrupo, () => setSaveError(true));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser, coach, isAdmin, academyId, groupAssignments === null, misGrupoKeysJoined]);
+    const unsub = isAdmin
+      ? watchAcademyStudentsForAdmin(academyId, setAlumnosGrupo, () => setSaveError(true))
+      : watchAcademyStudentsForCoach(authUser.uid, setAlumnosGrupo, () => setSaveError(true));
+    return unsub;
+  }, [authUser, coach, isAdmin, academyId]);
 
   useEffect(() => {
     if (!authUser || !coach || !isAdmin) return;
@@ -229,6 +217,7 @@ export default function CountryPadelApp() {
 
   const addAlumnoGrupo = async (data) => {
     try {
+      const label = grupoLabel(data.deporte, data.categoria);
       const id = await createAcademyStudent(academyId, {
         nombre: data.nombre,
         deporte: data.deporte,
@@ -236,7 +225,7 @@ export default function CountryPadelApp() {
         edad: data.edad || "",
         descripcion: "",
         puntos: [],
-        grupoKey: buildGrupoKey(academyId, data.deporte, data.categoria),
+        assignedCoachUids: (groupAssignments && groupAssignments[label]) || [],
       });
       setSaveError(false);
       return id;
@@ -252,7 +241,8 @@ export default function CountryPadelApp() {
         const actual = (alumnosGrupo || []).find((a) => a.id === id);
         const deporte = patch.deporte || actual?.deporte;
         const categoria = patch.categoria || actual?.categoria;
-        patch = { ...patch, grupoKey: buildGrupoKey(academyId, deporte, categoria) };
+        const label = grupoLabel(deporte, categoria);
+        patch = { ...patch, assignedCoachUids: (groupAssignments && groupAssignments[label]) || [] };
       }
       await patchAcademyStudent(id, patch);
       setSaveError(false);
@@ -266,6 +256,11 @@ export default function CountryPadelApp() {
     setGroupAssignments(next);
     try {
       await saveGroupAssignments(academyId, next);
+      const [deporte, categoria] = label.split(" · ");
+      const affectedIds = (alumnosGrupo || [])
+        .filter((a) => a.deporte === deporte && a.categoria === categoria)
+        .map((a) => a.id);
+      if (affectedIds.length > 0) await applyGroupAssignmentToStudents(affectedIds, coachUids);
       setSaveError(false);
     } catch (e) {
       setSaveError(true);

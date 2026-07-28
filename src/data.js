@@ -11,6 +11,7 @@ import {
   query,
   where,
   onSnapshot,
+  writeBatch,
 } from "firebase/firestore";
 
 const studentsCol = collection(db, "students");
@@ -101,14 +102,12 @@ export function watchAcademyStudentsForAdmin(academyId, callback, onError) {
   );
 }
 
-// grupoKeys: claves ya combinadas con el academyId (ver buildGrupoKey en App.jsx),
-// para que el filtro "in" no necesite un índice compuesto por academyId.
-export function watchAcademyStudentsForCoach(grupoKeys, callback, onError) {
-  if (!grupoKeys || grupoKeys.length === 0) {
-    callback([]);
-    return () => {};
-  }
-  const q = query(academyStudentsCol, where("grupoKey", "in", grupoKeys));
+// assignedCoachUids vive en cada alumno (copia del grupo al que pertenece) para
+// que la regla de seguridad de "list" no dependa de leer otro documento —
+// Firestore no permite eso para consultas de lista, solo para lecturas de un
+// documento individual.
+export function watchAcademyStudentsForCoach(coachUid, callback, onError) {
+  const q = query(academyStudentsCol, where("assignedCoachUids", "array-contains", coachUid));
   return onSnapshot(
     q,
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
@@ -128,6 +127,14 @@ export function watchGroupAssignments(academyId, callback, onError) {
 
 export async function saveGroupAssignments(academyId, asignaciones) {
   await setDoc(doc(db, "groupAssignments", academyId), { asignaciones }, { merge: true });
+}
+
+// Copia la lista de coaches asignados a cada alumno de ese grupo, para que la
+// regla de seguridad pueda revisarlo sin leer otro documento.
+export async function applyGroupAssignmentToStudents(studentIds, coachUids) {
+  const batch = writeBatch(db);
+  studentIds.forEach((id) => batch.update(doc(academyStudentsCol, id), { assignedCoachUids: coachUids }));
+  await batch.commit();
 }
 
 export async function createAcademyStudent(academyId, data) {
