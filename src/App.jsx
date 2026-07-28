@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { storage } from "./storage.js";
+import { auth } from "./firebase.js";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import {
+  watchStudents,
+  createStudent,
+  patchStudent,
+  removeStudent,
+  getCoachProfile,
+  saveCoachProfile,
+} from "./data.js";
 
 const COLORS = {
   ink: "#12211F",
@@ -13,72 +23,26 @@ const COLORS = {
   green: "#B7C98A",
 };
 
-const seedStudents = () => [
-  {
-    id: "s1",
-    nombre: "Sofía Marín",
-    grupo: "Intermedio-B",
-    nivel: "4.5",
-    mano: "Diestra",
-    lado: "Revés",
-    telefono: "999 123 4567",
-    miembroDesde: "Marzo 2025",
-    fisico: "Molestia leve en el codo derecho — en seguimiento.",
-    modalidad: "paquete",
-    paquete: { nombre: "Paquete 8 clases", total: 8, usadas: 6, vence: "2026-08-05", finalizado: false },
-    paquetesAnteriores: [
-      { periodo: "02 may — 28 jun", nombre: "Paquete 8 clases", clases: 8 },
-    ],
-    asistencias: ["2026-07-02", "2026-07-05", "2026-07-08", "2026-07-12", "2026-07-19", "2026-07-24"],
-    clasesPagadas: [],
-    sesiones: [
-      { fecha: "2026-07-24", enfoque: "Remate y definición en red", ejercicios: "Remate cruzado x3 series\nVolea-remate con feed" },
-    ],
-    puntos: [
-      { texto: "Terminar el remate hacia adentro de la cancha, no fuera", prioridad: "Alta" },
-      { texto: "Variar la altura del saque", prioridad: "Media" },
-    ],
-    objetivos: [
-      { texto: "Competir en 4ta categoría en el Torneo de Agosto", plazo: "Corto plazo", fecha: "Ago 2026" },
-    ],
-    partidos: [
-      { fecha: "2026-07-22", rival: "Diego & Mau", resultado: "6-4 / 6-2", resu: "W", tags: "Volea alta, Salida de pared", nota: "Mejoró la salida de pared de revés." },
-    ],
-    notas: [
-      { fecha: "2026-07-24", autor: "Coach Ale", texto: "Quiere enfocarse en el remate 3 semanas antes del torneo." },
-    ],
-  },
-];
-
-async function loadStudents() {
-  let raw;
+// Datos que vivían solo en este dispositivo antes de moverse a la nube.
+// Se usan una sola vez, para ofrecer migrarlos al primer inicio de sesión.
+async function loadLocalBackup() {
   try {
-    raw = (await storage.get("students", false)).value;
+    const list = JSON.parse((await storage.get("students", false)).value);
+    return Array.isArray(list) && list.length > 0 ? list : null;
   } catch (e) {
-    const seed = seedStudents();
-    try {
-      await storage.set("students", JSON.stringify(seed), false);
-    } catch (e2) {}
-    return seed;
+    return null;
   }
+}
+
+async function loadLocalCoach() {
   try {
-    return JSON.parse(raw);
+    return JSON.parse((await storage.get("coach", false)).value);
   } catch (e) {
-    console.error("No se pudieron leer los datos guardados, están dañados.", e);
-    return seedStudents();
+    return null;
   }
 }
 
 const DEFAULT_COACH = { nombre: "", rol: "Coach de Padel", telefono: "", email: "", bio: "" };
-
-async function loadCoach() {
-  try {
-    const res = await storage.get("coach", false);
-    return { ...DEFAULT_COACH, ...JSON.parse(res.value) };
-  } catch (e) {
-    return DEFAULT_COACH;
-  }
-}
 
 function fmt(dateStr) {
   if (!dateStr) return "";
@@ -88,6 +52,7 @@ function fmt(dateStr) {
 }
 
 export default function CountryPadelApp() {
+  const [authUser, setAuthUser] = useState(undefined); // undefined = verificando, null = sin sesión
   const [students, setStudents] = useState(null);
   const [coach, setCoach] = useState(null);
   const [view, setView] = useState("directorio");
@@ -96,43 +61,49 @@ export default function CountryPadelApp() {
   const [tab, setTab] = useState("perfil");
   const [saveError, setSaveError] = useState(false);
   const [showNuevoAlumno, setShowNuevoAlumno] = useState(false);
+  const [migration, setMigration] = useState(null); // null=por revisar, {students}=ofrecer, "none"|"done"
+
+  useEffect(() => onAuthStateChanged(auth, setAuthUser), []);
 
   useEffect(() => {
-    Promise.all([loadStudents(), loadCoach()]).then(([s, c]) => {
-      setStudents(s);
-      setCoach(c);
-    });
-  }, []);
+    if (!authUser) return;
+    setStudents(null);
+    const unsub = watchStudents(authUser.uid, setStudents, () => setSaveError(true));
+    getCoachProfile(authUser.uid).then((c) => setCoach({ ...DEFAULT_COACH, ...c }));
+    return unsub;
+  }, [authUser]);
 
-  const persist = async (next) => {
-    setStudents(next);
+  useEffect(() => {
+    if (!authUser || students === null || migration !== null) return;
+    if (students.length > 0) {
+      setMigration("none");
+      return;
+    }
+    loadLocalBackup().then((local) => setMigration(local ? { students: local } : "none"));
+  }, [authUser, students, migration]);
+
+  const runMigration = async () => {
+    if (!migration || !migration.students) return;
+    for (const s of migration.students) {
+      const { id, ...rest } = s;
+      await createStudent(authUser.uid, rest);
+    }
+    const localCoach = await loadLocalCoach();
+    if (localCoach) await saveCoachProfile(authUser.uid, localCoach);
+    setMigration("done");
+  };
+
+  const updateStudent = async (id, patch) => {
     try {
-      await storage.set("students", JSON.stringify(next), false);
+      await patchStudent(id, patch);
       setSaveError(false);
     } catch (e) {
       setSaveError(true);
     }
   };
 
-  const persistCoach = async (patch) => {
-    const next = { ...coach, ...patch };
-    setCoach(next);
-    try {
-      await storage.set("coach", JSON.stringify(next), false);
-      setSaveError(false);
-    } catch (e) {
-      setSaveError(true);
-    }
-  };
-
-  const updateStudent = (id, patch) => {
-    const next = students.map((s) => (s.id === id ? { ...s, ...patch } : s));
-    persist(next);
-  };
-
-  const addStudent = (data) => {
+  const addStudent = async (data) => {
     const nuevo = {
-      id: "s" + Date.now(),
       nombre: data.nombre,
       grupo: data.grupo || "Sin grupo",
       nivel: data.nivel || "—",
@@ -152,15 +123,61 @@ export default function CountryPadelApp() {
       partidos: [],
       notas: [],
     };
-    persist([...(students || []), nuevo]);
+    try {
+      await createStudent(authUser.uid, nuevo);
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
     setShowNuevoAlumno(false);
   };
 
-  const deleteStudent = (id) => {
-    persist(students.filter((s) => s.id !== id));
+  const deleteStudent = async (id) => {
+    try {
+      await removeStudent(id);
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
     setSelectedId(null);
     setView("directorio");
   };
+
+  const persistCoach = async (patch) => {
+    const next = { ...coach, ...patch };
+    setCoach(next);
+    try {
+      await saveCoachProfile(authUser.uid, patch);
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
+  };
+
+  const replaceAllStudents = async (data) => {
+    try {
+      await Promise.all(students.map((s) => removeStudent(s.id)));
+      await Promise.all(data.map(({ id, ...rest }) => createStudent(authUser.uid, rest)));
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
+  };
+
+  if (authUser === undefined) {
+    return (
+      <div style={styles.app} className="app-shell">
+        <style>{fontImport}</style>
+        <div style={styles.loadingBox} className="phone-shell">
+          <div className="spinner" style={styles.spinner} />
+        </div>
+      </div>
+    );
+  }
+
+  if (authUser === null) {
+    return <LoginScreen />;
+  }
 
   if (!students || !coach) {
     return (
@@ -195,9 +212,13 @@ export default function CountryPadelApp() {
             showNuevoAlumno={showNuevoAlumno}
             setShowNuevoAlumno={setShowNuevoAlumno}
             addStudent={addStudent}
-            onImportAll={persist}
+            onImportAll={replaceAllStudents}
             coach={coach}
             onUpdateCoach={persistCoach}
+            migration={migration}
+            onMigrate={runMigration}
+            onDismissMigration={() => setMigration("none")}
+            onSignOut={() => signOut(auth)}
           />
         )}
         {view === "perfil" && selected && (
@@ -215,7 +236,92 @@ export default function CountryPadelApp() {
   );
 }
 
-function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno, setShowNuevoAlumno, addStudent, onImportAll, coach, onUpdateCoach }) {
+function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+    } catch (err) {
+      setError("Correo o contraseña incorrectos.");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={styles.app} className="app-shell">
+      <style>{fontImport}</style>
+      <div style={styles.phone} className="phone-shell">
+        <div style={styles.header} className="header-safe">
+          <div style={styles.brand}>COUNTRY PADEL</div>
+          <div style={styles.titulo}>Iniciar sesión</div>
+        </div>
+        <div style={styles.content} className="content-safe">
+          <form onSubmit={handleSubmit} style={styles.card}>
+            <div style={styles.cardLabel}>Acceso del coach</div>
+            <input
+              style={styles.input}
+              type="email"
+              autoCapitalize="none"
+              autoComplete="username"
+              placeholder="Correo"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <input
+              style={styles.input}
+              type="password"
+              autoComplete="current-password"
+              placeholder="Contraseña"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {error && <div style={styles.importError}>{error}</div>}
+            <button style={{ ...styles.primaryBtn, marginTop: 4 }} disabled={loading || !email.trim() || !password}>
+              {loading ? "Entrando…" : "Entrar"}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MigrationBanner({ count, onMigrate, onDismiss }) {
+  const [loading, setLoading] = useState(false);
+  return (
+    <div style={{ ...styles.card, marginBottom: 10 }}>
+      <div style={styles.cardLabel}>Datos de este iPhone</div>
+      <p style={styles.backupHint}>
+        Encontramos {count} alumno{count !== 1 ? "s" : ""} guardado{count !== 1 ? "s" : ""} en este dispositivo, de antes de usar la nube. ¿Los subimos a tu cuenta?
+      </p>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          style={{ ...styles.addBtn, flex: 1 }}
+          disabled={loading}
+          onClick={async () => {
+            setLoading(true);
+            await onMigrate();
+            setLoading(false);
+          }}
+        >
+          {loading ? "Subiendo…" : "Sí, subir"}
+        </button>
+        <button style={{ ...styles.secondaryBtnSmall, flex: 1 }} onClick={onDismiss} disabled={loading}>
+          Ignorar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno, setShowNuevoAlumno, addStudent, onImportAll, coach, onUpdateCoach, migration, onMigrate, onDismissMigration, onSignOut }) {
   const [nombre, setNombre] = useState("");
   const [grupo, setGrupo] = useState("");
   const [nivel, setNivel] = useState("");
@@ -226,7 +332,8 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
   const filtrados = students.filter((s) => s.nombre.toLowerCase().includes(busqueda.toLowerCase()));
 
   const exportarDatos = () => {
-    const blob = new Blob([JSON.stringify(students, null, 2)], { type: "application/json" });
+    const datosLimpios = students.map(({ coachUid, ...rest }) => rest);
+    const blob = new Blob([JSON.stringify(datosLimpios, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     const hoy = new Date().toISOString().slice(0, 10);
@@ -267,6 +374,9 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
         />
       </div>
       <div style={styles.content} className="content-safe">
+        {migration && migration.students && (
+          <MigrationBanner count={migration.students.length} onMigrate={onMigrate} onDismiss={onDismissMigration} />
+        )}
         <div style={{ display: "flex", gap: 8 }}>
           <button style={{ ...styles.secondaryBtn, flex: 1 }} onClick={() => { setShowNuevoAlumno((v) => !v); setShowAjustes(false); }}>
             {showNuevoAlumno ? "Cancelar" : "+ Nuevo alumno"}
@@ -291,7 +401,7 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
         {showAjustes && (
           <div style={{ ...styles.card, marginTop: 10 }}>
             <div style={styles.cardLabel}>Respaldo de datos</div>
-            <p style={styles.backupHint}>Tus datos viven solo en este iPhone. Exporta un respaldo de vez en cuando, o para pasarlos a otro dispositivo.</p>
+            <p style={styles.backupHint}>Tus datos ya viven en la nube. Exporta una copia de vez en cuando por si acaso, o para pasarlos a otra cuenta.</p>
             <button style={styles.addBtn} onClick={exportarDatos}>Exportar copia</button>
             <button
               style={{ ...styles.secondaryBtnSmall, width: "100%", marginTop: 7 }}
@@ -311,6 +421,14 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
               }}
             />
             {importError && <div style={styles.importError}>{importError}</div>}
+          </div>
+        )}
+
+        {showAjustes && (
+          <div style={{ ...styles.card, marginTop: 10 }}>
+            <button style={styles.dangerBtn} onClick={() => { if (window.confirm("¿Cerrar sesión?")) onSignOut(); }}>
+              Cerrar sesión
+            </button>
           </div>
         )}
 
@@ -370,7 +488,7 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
   );
 }
 
-function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
+export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, readOnly = false, coachProfile = null }) {
   const restantes = alumno.paquete.finalizado ? 0 : alumno.paquete.total - alumno.paquete.usadas;
   const modalidad = alumno.modalidad || "paquete";
   const clasesPagadas = alumno.clasesPagadas || [];
@@ -420,11 +538,38 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
     onUpdate({ asistencias: next });
   };
 
+  const [copiado, setCopiado] = useState(false);
+  const copiarLink = () => {
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}?alumno=${alumno.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    });
+  };
+
+  const tabsList = readOnly
+    ? [
+        ["asistencia", "Asistencia"],
+        ["entrenamiento", "Entreno"],
+        ["partidos", "Partidos"],
+      ]
+    : [
+        ["perfil", "Perfil"],
+        ["entrenamiento", "Entreno"],
+        ["asistencia", "Asistencia"],
+        ["partidos", "Partidos"],
+        ["notas", "Notas"],
+      ];
+
   return (
     <>
       <div style={styles.header} className="header-safe">
         <div style={styles.headerTopRow}>
-          <button style={styles.backBtn} onClick={onBack}>← Alumnos</button>
+          {readOnly ? (
+            <span style={styles.readOnlyBadge}>SOLO LECTURA</span>
+          ) : (
+            <button style={styles.backBtn} onClick={onBack}>← Alumnos</button>
+          )}
         </div>
         <div style={styles.playerRow}>
           <div style={styles.avatarBig}>{alumno.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>
@@ -434,16 +579,16 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
           </div>
           <div style={styles.levelBadge}>{alumno.nivel}</div>
         </div>
+        {readOnly && coachProfile?.nombre && (
+          <div style={styles.coachLine}>
+            Coach: {coachProfile.nombre}{coachProfile.rol ? ` · ${coachProfile.rol}` : ""}
+            {coachProfile.telefono ? ` · ${coachProfile.telefono}` : ""}
+          </div>
+        )}
       </div>
 
       <div style={styles.tabs}>
-        {[
-          ["perfil", "Perfil"],
-          ["entrenamiento", "Entreno"],
-          ["asistencia", "Asistencia"],
-          ["partidos", "Partidos"],
-          ["notas", "Notas"],
-        ].map(([key, label]) => (
+        {tabsList.map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -469,6 +614,11 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
               <div style={styles.cardLabel}>Físico / lesiones</div>
               <EditableRow k="" v={alumno.fisico || "Sin observaciones"} onSave={(v) => onUpdate({ fisico: v })} multiline />
             </div>
+            <div style={styles.card}>
+              <div style={styles.cardLabel}>Vista para el alumno</div>
+              <p style={styles.backupHint}>Comparte este link para que {alumno.nombre.split(" ")[0]} vea su asistencia, avance y partidos — sin poder editar nada.</p>
+              <button style={styles.addBtn} onClick={copiarLink}>{copiado ? "¡Copiado!" : "Copiar link para el alumno"}</button>
+            </div>
             <button
               style={styles.dangerBtn}
               onClick={() => {
@@ -492,10 +642,11 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={styles.objetivoFecha}>{o.fecha}</span>
-                    <button style={styles.deleteBtn} onClick={() => removeAt("objetivos", i)} aria-label="Eliminar objetivo">×</button>
+                    {!readOnly && <button style={styles.deleteBtn} onClick={() => removeAt("objetivos", i)} aria-label="Eliminar objetivo">×</button>}
                   </div>
                 </div>
               ))}
+              {!readOnly && (
               <div style={styles.miniForm}>
                 <input style={styles.input} placeholder="Nuevo objetivo" value={nuevoObjTexto} onChange={(e) => setNuevoObjTexto(e.target.value)} />
                 <div style={{ display: "flex", gap: 6 }}>
@@ -518,8 +669,10 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                   + Agregar objetivo
                 </button>
               </div>
+              )}
             </div>
 
+            {!readOnly && (
             <div style={styles.card}>
               <div style={styles.cardLabel}>Puntos por desarrollar</div>
               {alumno.puntos.map((p, i) => (
@@ -550,6 +703,7 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                 </div>
               </div>
             </div>
+            )}
 
             <div style={styles.sesionesLabel}>Bitácora de clases</div>
             {alumno.sesiones.map((_, i) => i).reverse().map((i) => {
@@ -558,7 +712,7 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                 <div key={i} style={styles.sesionCard}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={styles.matchDate}>{fmt(s.fecha) || s.fecha}</span>
-                    <button style={styles.deleteBtn} onClick={() => removeAt("sesiones", i)} aria-label="Eliminar clase">×</button>
+                    {!readOnly && <button style={styles.deleteBtn} onClick={() => removeAt("sesiones", i)} aria-label="Eliminar clase">×</button>}
                   </div>
                   <div style={styles.sesionEnfoque}>{s.enfoque}</div>
                   {s.ejercicios && (
@@ -569,6 +723,7 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                 </div>
               );
             })}
+            {!readOnly && (
             <div style={{ ...styles.card, marginTop: 4 }}>
               <div style={styles.cardLabel}>Registrar clase de hoy</div>
               <input style={styles.input} placeholder="Enfoque de la clase" value={nuevaSesionEnfoque} onChange={(e) => setNuevaSesionEnfoque(e.target.value)} />
@@ -586,11 +741,13 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                 + Guardar clase
               </button>
             </div>
+            )}
           </div>
         )}
 
         {tab === "asistencia" && (
           <div style={styles.section}>
+            {!readOnly && (
             <div style={styles.segmented}>
               <button
                 style={{ ...styles.segmentBtn, ...(modalidad === "paquete" ? styles.segmentBtnActive : {}) }}
@@ -605,6 +762,7 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                 Pago por clase
               </button>
             </div>
+            )}
 
             {modalidad === "paquete" && (
             <div style={styles.card}>
@@ -626,13 +784,18 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                     </div>
                     <div style={styles.paqueteNums}>
                       <span style={styles.paqueteRestantes}>{restantes} clases restantes</span>
-                      <div style={styles.usadasControl}>
-                        <button style={styles.stepBtn} disabled={alumno.paquete.usadas === 0} onClick={() => onUpdate({ paquete: { ...alumno.paquete, usadas: alumno.paquete.usadas - 1 } })}>−</button>
+                      {readOnly ? (
                         <span style={styles.paqueteUsadas}>{alumno.paquete.usadas}/{alumno.paquete.total} usadas</span>
-                        <button style={styles.stepBtn} disabled={alumno.paquete.usadas === alumno.paquete.total} onClick={() => onUpdate({ paquete: { ...alumno.paquete, usadas: alumno.paquete.usadas + 1 } })}>+</button>
-                      </div>
+                      ) : (
+                        <div style={styles.usadasControl}>
+                          <button style={styles.stepBtn} disabled={alumno.paquete.usadas === 0} onClick={() => onUpdate({ paquete: { ...alumno.paquete, usadas: alumno.paquete.usadas - 1 } })}>−</button>
+                          <span style={styles.paqueteUsadas}>{alumno.paquete.usadas}/{alumno.paquete.total} usadas</span>
+                          <button style={styles.stepBtn} disabled={alumno.paquete.usadas === alumno.paquete.total} onClick={() => onUpdate({ paquete: { ...alumno.paquete, usadas: alumno.paquete.usadas + 1 } })}>+</button>
+                        </div>
+                      )}
                     </div>
                   </div>
+                  {!readOnly && (
                   <button
                     style={styles.finalizarBtn}
                     onClick={() => {
@@ -645,10 +808,11 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                   >
                     Finalizar paquete
                   </button>
+                  )}
                 </>
               )}
 
-              {alumno.paquete.finalizado && (
+              {alumno.paquete.finalizado && !readOnly && (
                 <div style={styles.miniForm}>
                   <input style={styles.input} placeholder="Nombre del paquete" value={npNombre} onChange={(e) => setNpNombre(e.target.value)} />
                   <div style={{ display: "flex", gap: 6 }}>
@@ -678,23 +842,28 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
               {clasesOrdenadas.length === 0 && <div style={styles.empty}>Aún no hay clases registradas.</div>}
               {clasesOrdenadas.map((d) => {
                 const pagada = clasesPagadas.includes(d);
+                const chipStyle = {
+                  ...styles.pagoChip,
+                  background: pagada ? COLORS.lime : "transparent",
+                  color: pagada ? COLORS.ink : COLORS.amber,
+                  border: pagada ? "none" : `1.5px solid ${COLORS.amber}`,
+                };
                 return (
                   <div key={d} style={styles.pagoRow}>
                     <span style={styles.pagoFecha}>{fmt(d)}</span>
-                    <button
-                      style={{
-                        ...styles.pagoChip,
-                        background: pagada ? COLORS.lime : "transparent",
-                        color: pagada ? COLORS.ink : COLORS.amber,
-                        border: pagada ? "none" : `1.5px solid ${COLORS.amber}`,
-                      }}
-                      onClick={() => {
-                        const next = pagada ? clasesPagadas.filter((x) => x !== d) : [...clasesPagadas, d];
-                        onUpdate({ clasesPagadas: next });
-                      }}
-                    >
-                      {pagada ? "Pagada" : "Pendiente"}
-                    </button>
+                    {readOnly ? (
+                      <span style={chipStyle}>{pagada ? "Pagada" : "Pendiente"}</span>
+                    ) : (
+                      <button
+                        style={chipStyle}
+                        onClick={() => {
+                          const next = pagada ? clasesPagadas.filter((x) => x !== d) : [...clasesPagadas, d];
+                          onUpdate({ clasesPagadas: next });
+                        }}
+                      >
+                        {pagada ? "Pagada" : "Pendiente"}
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -711,24 +880,23 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                   const iso = `${anioMes}-${String(dia).padStart(2, "0")}`;
                   const asistio = alumno.asistencias.includes(iso);
                   const esHoy = dia === hoy.getDate();
-                  return (
-                    <button
-                      key={dia}
-                      onClick={() => toggleDia(dia)}
-                      style={{
-                        ...styles.calDay,
-                        background: asistio ? COLORS.ink : "transparent",
-                        color: asistio ? COLORS.lime : esHoy ? COLORS.ink : "#B7BDB8",
-                        border: esHoy && !asistio ? `1.5px solid ${COLORS.ink}` : "none",
-                        fontWeight: esHoy ? 700 : 500,
-                      }}
-                    >
-                      {dia}
-                    </button>
+                  const dayStyle = {
+                    ...styles.calDay,
+                    background: asistio ? COLORS.ink : "transparent",
+                    color: asistio ? COLORS.lime : esHoy ? COLORS.ink : "#B7BDB8",
+                    border: esHoy && !asistio ? `1.5px solid ${COLORS.ink}` : "none",
+                    fontWeight: esHoy ? 700 : 500,
+                  };
+                  return readOnly ? (
+                    <div key={dia} style={dayStyle}>{dia}</div>
+                  ) : (
+                    <button key={dia} onClick={() => toggleDia(dia)} style={dayStyle}>{dia}</button>
                   );
                 })}
               </div>
-              <div style={styles.calFootnote}>Toca un día para marcar/quitar asistencia · {alumno.asistencias.length} clases este mes</div>
+              <div style={styles.calFootnote}>
+                {readOnly ? `${alumno.asistencias.length} clases este mes` : `Toca un día para marcar/quitar asistencia · ${alumno.asistencias.length} clases este mes`}
+              </div>
             </div>
 
             {alumno.paquetesAnteriores.length > 0 && (
@@ -757,7 +925,7 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                       <span style={{ ...styles.resultChip, background: p.resu === "W" ? COLORS.lime : COLORS.border }}>
                         {p.resu === "W" ? "GANÓ" : "PERDIÓ"}
                       </span>
-                      <button style={styles.deleteBtn} onClick={() => removeAt("partidos", i)} aria-label="Eliminar partido">×</button>
+                      {!readOnly && <button style={styles.deleteBtn} onClick={() => removeAt("partidos", i)} aria-label="Eliminar partido">×</button>}
                     </div>
                   </div>
                   <div style={styles.rival}>{p.rival}</div>
@@ -771,6 +939,7 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                 </div>
               );
             })}
+            {!readOnly && (
             <div style={styles.card}>
               <div style={styles.cardLabel}>Registrar partido</div>
               <input style={styles.input} type="date" value={pFecha} onChange={(e) => setPFecha(e.target.value)} />
@@ -795,6 +964,7 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
                 + Guardar partido
               </button>
             </div>
+            )}
           </div>
         )}
 
@@ -915,6 +1085,8 @@ const styles = {
   playerName: { fontFamily: "'Archivo Black', sans-serif", fontSize: 19 },
   playerMeta: { fontSize: 12, opacity: 0.65, marginTop: 3 },
   levelBadge: { background: "rgba(196,216,46,0.15)", border: "1px solid rgba(196,216,46,0.5)", color: COLORS.lime, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, borderRadius: 8, padding: "5px 9px" },
+  readOnlyBadge: { fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 10, letterSpacing: "0.06em", color: COLORS.ink, background: COLORS.lime, borderRadius: 999, padding: "4px 9px 3px" },
+  coachLine: { fontSize: 11.5, color: COLORS.bg, opacity: 0.7, paddingBottom: 14 },
   tabs: { display: "flex", background: COLORS.bg, borderBottom: `1px solid ${COLORS.border}`, padding: "0 14px", overflowX: "auto", whiteSpace: "nowrap" },
   tabBtn: { background: "none", border: "none", padding: "13px 0", marginRight: 18, fontSize: 13.5, cursor: "pointer", position: "relative", fontFamily: "'Archivo', sans-serif", flexShrink: 0 },
   tabIndicator: { position: "absolute", bottom: -1, left: 0, right: 0, height: 3, background: COLORS.lime, borderRadius: 2 },
