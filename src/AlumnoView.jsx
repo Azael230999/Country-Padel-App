@@ -3,8 +3,8 @@ import { watchStudentPublic, getCoachProfile } from "./data.js";
 import { PerfilAlumno } from "./screens/PerfilAlumno.jsx";
 
 const COLORS = {
-  ink: "#12211F",
-  bg: "#FAF9F4",
+  ink: "#2A1D14",
+  bg: "#F5EEE2",
 };
 
 export default function AlumnoView({ id }) {
@@ -73,15 +73,15 @@ export default function AlumnoView({ id }) {
 }
 
 const outerStyles = {
-  app: { minHeight: "100vh", background: "#0F1E1C", display: "flex", justifyContent: "center", fontFamily: "'Archivo', sans-serif", padding: "24px 12px" },
+  app: { minHeight: "100vh", background: "#1C130D", display: "flex", justifyContent: "center", fontFamily: "'Karla', sans-serif", padding: "24px 12px" },
   phone: { width: 390, maxWidth: "100%", background: COLORS.bg, borderRadius: 28, overflow: "hidden", boxShadow: "0 30px 60px rgba(0,0,0,0.4)", display: "flex", flexDirection: "column", height: 780, position: "relative" },
   loadingBox: { width: 390, maxWidth: "100%", background: COLORS.bg, borderRadius: 28, boxShadow: "0 30px 60px rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", height: 780, padding: 24 },
-  spinner: { width: 32, height: 32, borderRadius: "50%", border: "3px solid #EFEAE0", borderTopColor: COLORS.ink },
+  spinner: { width: 32, height: 32, borderRadius: "50%", border: "3px solid #EFE3CE", borderTopColor: COLORS.ink },
   errorText: { fontSize: 14, color: COLORS.ink, textAlign: "center", lineHeight: 1.6 },
 };
 
 const fontImport = `
-  @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Karla:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap');
   * { box-sizing: border-box; }
   html, body, #root { height: 100%; }
   body { margin: 0; }
