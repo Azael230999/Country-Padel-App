@@ -69,6 +69,17 @@ async function loadStudents() {
   }
 }
 
+const DEFAULT_COACH = { nombre: "", rol: "Coach de Padel", telefono: "", email: "", bio: "" };
+
+async function loadCoach() {
+  try {
+    const res = await storage.get("coach", false);
+    return { ...DEFAULT_COACH, ...JSON.parse(res.value) };
+  } catch (e) {
+    return DEFAULT_COACH;
+  }
+}
+
 function fmt(dateStr) {
   if (!dateStr) return "";
   const [y, m, d] = dateStr.split("-");
@@ -78,6 +89,7 @@ function fmt(dateStr) {
 
 export default function CountryPadelApp() {
   const [students, setStudents] = useState(null);
+  const [coach, setCoach] = useState(null);
   const [view, setView] = useState("directorio");
   const [selectedId, setSelectedId] = useState(null);
   const [busqueda, setBusqueda] = useState("");
@@ -86,13 +98,27 @@ export default function CountryPadelApp() {
   const [showNuevoAlumno, setShowNuevoAlumno] = useState(false);
 
   useEffect(() => {
-    loadStudents().then(setStudents);
+    Promise.all([loadStudents(), loadCoach()]).then(([s, c]) => {
+      setStudents(s);
+      setCoach(c);
+    });
   }, []);
 
   const persist = async (next) => {
     setStudents(next);
     try {
       await storage.set("students", JSON.stringify(next), false);
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
+  };
+
+  const persistCoach = async (patch) => {
+    const next = { ...coach, ...patch };
+    setCoach(next);
+    try {
+      await storage.set("coach", JSON.stringify(next), false);
       setSaveError(false);
     } catch (e) {
       setSaveError(true);
@@ -136,7 +162,7 @@ export default function CountryPadelApp() {
     setView("directorio");
   };
 
-  if (!students) {
+  if (!students || !coach) {
     return (
       <div style={styles.app} className="app-shell">
         <style>{fontImport}</style>
@@ -170,6 +196,8 @@ export default function CountryPadelApp() {
             setShowNuevoAlumno={setShowNuevoAlumno}
             addStudent={addStudent}
             onImportAll={persist}
+            coach={coach}
+            onUpdateCoach={persistCoach}
           />
         )}
         {view === "perfil" && selected && (
@@ -187,11 +215,11 @@ export default function CountryPadelApp() {
   );
 }
 
-function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno, setShowNuevoAlumno, addStudent, onImportAll }) {
+function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno, setShowNuevoAlumno, addStudent, onImportAll, coach, onUpdateCoach }) {
   const [nombre, setNombre] = useState("");
   const [grupo, setGrupo] = useState("");
   const [nivel, setNivel] = useState("");
-  const [showRespaldo, setShowRespaldo] = useState(false);
+  const [showAjustes, setShowAjustes] = useState(false);
   const [importError, setImportError] = useState("");
   const fileInputRef = useRef(null);
 
@@ -240,15 +268,27 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
       </div>
       <div style={styles.content} className="content-safe">
         <div style={{ display: "flex", gap: 8 }}>
-          <button style={{ ...styles.secondaryBtn, flex: 1 }} onClick={() => { setShowNuevoAlumno((v) => !v); setShowRespaldo(false); }}>
+          <button style={{ ...styles.secondaryBtn, flex: 1 }} onClick={() => { setShowNuevoAlumno((v) => !v); setShowAjustes(false); }}>
             {showNuevoAlumno ? "Cancelar" : "+ Nuevo alumno"}
           </button>
-          <button style={styles.iconBtn} onClick={() => { setShowRespaldo((v) => !v); setShowNuevoAlumno(false); }} aria-label="Respaldo de datos">
+          <button style={styles.iconBtn} onClick={() => { setShowAjustes((v) => !v); setShowNuevoAlumno(false); }} aria-label="Ajustes">
             ⚙
           </button>
         </div>
 
-        {showRespaldo && (
+        {showAjustes && (
+          <div style={{ ...styles.card, marginTop: 10 }}>
+            <div style={styles.cardLabel}>Mi perfil</div>
+            <p style={styles.backupHint}>Así te van a ver tus alumnos cuando puedan consultar su avance.</p>
+            <EditableRow k="Nombre" v={coach.nombre} onSave={(v) => onUpdateCoach({ nombre: v })} />
+            <EditableRow k="Rol" v={coach.rol} onSave={(v) => onUpdateCoach({ rol: v })} />
+            <EditableRow k="Teléfono" v={coach.telefono} onSave={(v) => onUpdateCoach({ telefono: v })} />
+            <EditableRow k="Email" v={coach.email} onSave={(v) => onUpdateCoach({ email: v })} />
+            <EditableRow k="" v={coach.bio || "Agrega una breve descripción o certificaciones"} onSave={(v) => onUpdateCoach({ bio: v })} multiline />
+          </div>
+        )}
+
+        {showAjustes && (
           <div style={{ ...styles.card, marginTop: 10 }}>
             <div style={styles.cardLabel}>Respaldo de datos</div>
             <p style={styles.backupHint}>Tus datos viven solo en este iPhone. Exporta un respaldo de vez en cuando, o para pasarlos a otro dispositivo.</p>
@@ -337,10 +377,6 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
   const clasesOrdenadas = [...alumno.asistencias].sort().reverse();
   const pagadasTotal = clasesOrdenadas.filter((d) => clasesPagadas.includes(d)).length;
   const pendientesTotal = clasesOrdenadas.length - pagadasTotal;
-
-  const removeAt = (listKey, index) => {
-    onUpdate({ [listKey]: alumno[listKey].filter((_, i) => i !== index) });
-  };
 
   const removeAt = (listKey, index) => {
     onUpdate({ [listKey]: alumno[listKey].filter((_, i) => i !== index) });
