@@ -382,10 +382,6 @@ function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete }) {
     onUpdate({ [listKey]: alumno[listKey].filter((_, i) => i !== index) });
   };
 
-  const removeAt = (listKey, index) => {
-    onUpdate({ [listKey]: alumno[listKey].filter((_, i) => i !== index) });
-  };
-
   // --- Entrenamiento form state ---
   const [nuevaSesionEnfoque, setNuevaSesionEnfoque] = useState("");
   const [nuevaSesionEjercicios, setNuevaSesionEjercicios] = useState("");
