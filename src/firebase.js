@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, deleteApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import {
   initializeFirestore,
@@ -21,3 +21,16 @@ export const auth = getAuth(app);
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({}) }),
 });
+
+// Crea cuentas de otros coaches sin cerrar la sesión actual: Firebase Auth
+// autentica automáticamente como el usuario recién creado en la instancia que
+// use, así que esa creación se hace en una app "secundaria" desechable.
+export async function withSecondaryAuth(fn) {
+  const secondary = initializeApp(firebaseConfig, "secondary-" + Date.now());
+  try {
+    const secondaryAuth = getAuth(secondary);
+    return await fn(secondaryAuth);
+  } finally {
+    await deleteApp(secondary);
+  }
+}

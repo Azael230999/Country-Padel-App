@@ -9,7 +9,19 @@ import {
   removeStudent,
   getCoachProfile,
   saveCoachProfile,
+  watchAcademyCoaches,
+  createCoachAccount,
+  watchAcademyStudentsForAdmin,
+  watchAcademyStudentsForCoach,
+  createAcademyStudent,
+  patchAcademyStudent,
+  removeAcademyStudent,
 } from "./data.js";
+
+const GRUPOS = {
+  "Pádel": ["Avanzado", "Intermedio", "Principiantes"],
+  "Tenis": ["Competitivo", "Bola amarilla", "Bola verde", "Bola naranja", "Bola roja"],
+};
 
 const COLORS = {
   ink: "#12211F",
@@ -42,7 +54,7 @@ async function loadLocalCoach() {
   }
 }
 
-const DEFAULT_COACH = { nombre: "", rol: "Coach de Padel", telefono: "", email: "", bio: "" };
+const DEFAULT_COACH = { nombre: "", rol: "Coach de Padel", telefono: "", email: "", bio: "", academyId: "", isAdmin: true };
 
 function fmt(dateStr) {
   if (!dateStr) return "";
@@ -62,6 +74,9 @@ export default function CountryPadelApp() {
   const [saveError, setSaveError] = useState(false);
   const [showNuevoAlumno, setShowNuevoAlumno] = useState(false);
   const [migration, setMigration] = useState(null); // null=por revisar, {students}=ofrecer, "none"|"done"
+  const [alumnosGrupo, setAlumnosGrupo] = useState(null);
+  const [academyCoaches, setAcademyCoaches] = useState(null);
+  const [selectedGrupoId, setSelectedGrupoId] = useState(null);
 
   useEffect(() => onAuthStateChanged(auth, setAuthUser), []);
 
@@ -72,6 +87,24 @@ export default function CountryPadelApp() {
     getCoachProfile(authUser.uid).then((c) => setCoach({ ...DEFAULT_COACH, ...c }));
     return unsub;
   }, [authUser]);
+
+  const isAdmin = coach ? coach.isAdmin : true;
+  const academyId = coach ? coach.academyId || authUser?.uid : null;
+
+  useEffect(() => {
+    if (!authUser || !coach) return;
+    setAlumnosGrupo(null);
+    const unsub = isAdmin
+      ? watchAcademyStudentsForAdmin(academyId, setAlumnosGrupo, () => setSaveError(true))
+      : watchAcademyStudentsForCoach(authUser.uid, setAlumnosGrupo, () => setSaveError(true));
+    return unsub;
+  }, [authUser, coach, isAdmin, academyId]);
+
+  useEffect(() => {
+    if (!authUser || !coach || !isAdmin) return;
+    const unsub = watchAcademyCoaches(academyId, setAcademyCoaches, () => {});
+    return unsub;
+  }, [authUser, coach, isAdmin, academyId]);
 
   useEffect(() => {
     if (!authUser || students === null || migration !== null) return;
@@ -164,6 +197,49 @@ export default function CountryPadelApp() {
     }
   };
 
+  const addAlumnoGrupo = async (data) => {
+    try {
+      const id = await createAcademyStudent(academyId, {
+        nombre: data.nombre,
+        deporte: data.deporte,
+        categoria: data.categoria,
+        edad: data.edad || "",
+        descripcion: "",
+        puntos: [],
+        assignedCoachUid: data.assignedCoachUid || null,
+      });
+      setSaveError(false);
+      return id;
+    } catch (e) {
+      setSaveError(true);
+      return null;
+    }
+  };
+
+  const updateAlumnoGrupo = async (id, patch) => {
+    try {
+      await patchAcademyStudent(id, patch);
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
+  };
+
+  const deleteAlumnoGrupo = async (id) => {
+    try {
+      await removeAcademyStudent(id);
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
+    setSelectedGrupoId(null);
+    setView("grupos");
+  };
+
+  const addCoach = async (email, password) => {
+    await createCoachAccount(academyId, email, password);
+  };
+
   if (authUser === undefined) {
     return (
       <div style={styles.app} className="app-shell">
@@ -219,6 +295,9 @@ export default function CountryPadelApp() {
             onMigrate={runMigration}
             onDismissMigration={() => setMigration("none")}
             onSignOut={() => signOut(auth)}
+            isAdmin={isAdmin}
+            nav={view}
+            setNav={setView}
           />
         )}
         {view === "perfil" && selected && (
@@ -229,6 +308,37 @@ export default function CountryPadelApp() {
             onBack={() => setView("directorio")}
             onUpdate={(patch) => updateStudent(selected.id, patch)}
             onDelete={() => deleteStudent(selected.id)}
+          />
+        )}
+        {view === "grupos" && (
+          <GruposScreen
+            isAdmin={isAdmin}
+            alumnos={alumnosGrupo}
+            academyCoaches={academyCoaches}
+            nav={view}
+            setNav={setView}
+            onSelect={(id) => {
+              setSelectedGrupoId(id);
+              setView("grupoDetalle");
+            }}
+            onAdd={addAlumnoGrupo}
+          />
+        )}
+        {view === "grupoDetalle" && (
+          <AlumnoGrupoDetalle
+            alumno={(alumnosGrupo || []).find((a) => a.id === selectedGrupoId)}
+            academyCoaches={academyCoaches}
+            onBack={() => setView("grupos")}
+            onUpdate={(patch) => updateAlumnoGrupo(selectedGrupoId, patch)}
+            onDelete={() => deleteAlumnoGrupo(selectedGrupoId)}
+          />
+        )}
+        {view === "coaches" && (
+          <CoachesScreen
+            coaches={academyCoaches}
+            nav={view}
+            setNav={setView}
+            onAddCoach={addCoach}
           />
         )}
       </div>
@@ -321,7 +431,25 @@ function MigrationBanner({ count, onMigrate, onDismiss }) {
   );
 }
 
-function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno, setShowNuevoAlumno, addStudent, onImportAll, coach, onUpdateCoach, migration, onMigrate, onDismissMigration, onSignOut }) {
+function NavSwitcher({ nav, setNav, isAdmin }) {
+  const items = [["directorio", "Mis alumnos"], ["grupos", "Mis grupos"]];
+  if (isAdmin) items.push(["coaches", "Coaches"]);
+  return (
+    <div style={styles.segmented}>
+      {items.map(([key, label]) => (
+        <button
+          key={key}
+          style={{ ...styles.segmentBtn, ...(nav === key || (key === "grupos" && nav === "grupoDetalle") ? styles.segmentBtnActive : {}) }}
+          onClick={() => setNav(key)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno, setShowNuevoAlumno, addStudent, onImportAll, coach, onUpdateCoach, migration, onMigrate, onDismissMigration, onSignOut, isAdmin, nav, setNav }) {
   const [nombre, setNombre] = useState("");
   const [grupo, setGrupo] = useState("");
   const [nivel, setNivel] = useState("");
@@ -374,6 +502,9 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
         />
       </div>
       <div style={styles.content} className="content-safe">
+        <div style={{ marginBottom: 10 }}>
+          <NavSwitcher nav={nav} setNav={setNav} isAdmin={isAdmin} />
+        </div>
         {migration && migration.students && (
           <MigrationBanner count={migration.students.length} onMigrate={onMigrate} onDismiss={onDismissMigration} />
         )}
@@ -482,6 +613,317 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
               </button>
             );
           })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function GruposScreen({ isAdmin, alumnos, academyCoaches, nav, setNav, onSelect, onAdd }) {
+  const [showNuevo, setShowNuevo] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [deporte, setDeporte] = useState("Pádel");
+  const [categoria, setCategoria] = useState(GRUPOS["Pádel"][0]);
+  const [edad, setEdad] = useState("");
+  const [coachUid, setCoachUid] = useState("");
+
+  if (alumnos === null) {
+    return (
+      <div style={styles.content} className="content-safe">
+        <div className="spinner" style={styles.spinner} />
+      </div>
+    );
+  }
+
+  const porGrupo = {};
+  alumnos.forEach((a) => {
+    const key = `${a.deporte} · ${a.categoria}`;
+    if (!porGrupo[key]) porGrupo[key] = [];
+    porGrupo[key].push(a);
+  });
+  const grupoKeys = Object.keys(porGrupo).sort();
+
+  return (
+    <>
+      <div style={styles.header} className="header-safe">
+        <div style={styles.brand}>COUNTRY PADEL</div>
+        <div style={styles.titulo}>Mis grupos</div>
+      </div>
+      <div style={styles.content} className="content-safe">
+        <div style={{ marginBottom: 10 }}>
+          <NavSwitcher nav={nav} setNav={setNav} isAdmin={isAdmin} />
+        </div>
+
+        {isAdmin && (
+          <>
+            <button style={styles.secondaryBtn} onClick={() => setShowNuevo((v) => !v)}>
+              {showNuevo ? "Cancelar" : "+ Nuevo alumno de grupo"}
+            </button>
+            {showNuevo && (
+              <div style={{ ...styles.card, marginTop: 10 }}>
+                <input style={styles.input} placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <select
+                    style={styles.select}
+                    value={deporte}
+                    onChange={(e) => { setDeporte(e.target.value); setCategoria(GRUPOS[e.target.value][0]); }}
+                  >
+                    {Object.keys(GRUPOS).map((d) => <option key={d}>{d}</option>)}
+                  </select>
+                  <select style={{ ...styles.select, flex: 1 }} value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+                    {GRUPOS[deporte].map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <input style={styles.input} placeholder="Edad" value={edad} onChange={(e) => setEdad(e.target.value)} />
+                <select style={{ ...styles.select, width: "100%" }} value={coachUid} onChange={(e) => setCoachUid(e.target.value)}>
+                  <option value="">Sin asignar</option>
+                  {(academyCoaches || []).map((c) => (
+                    <option key={c.uid} value={c.uid}>{c.nombre || c.email || c.uid}</option>
+                  ))}
+                </select>
+                <button
+                  style={{ ...styles.primaryBtn, marginTop: 4 }}
+                  disabled={!nombre.trim()}
+                  onClick={async () => {
+                    const id = await onAdd({ nombre: nombre.trim(), deporte, categoria, edad, assignedCoachUid: coachUid || null });
+                    setNombre(""); setEdad(""); setCoachUid(""); setShowNuevo(false);
+                    if (id) onSelect(id);
+                  }}
+                >
+                  Guardar alumno
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 18 }}>
+          {alumnos.length === 0 && <div style={styles.empty}>{isAdmin ? "Aún no hay alumnos de grupo." : "Todavía no tienes grupos asignados."}</div>}
+          {grupoKeys.map((key) => (
+            <div key={key}>
+              <div style={styles.sesionesLabel}>{key}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                {porGrupo[key].map((a) =>
+                  isAdmin ? (
+                    <button key={a.id} onClick={() => onSelect(a.id)} style={styles.row}>
+                      <div style={styles.avatar}>{a.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>
+                      <div style={{ flex: 1, textAlign: "left" }}>
+                        <div style={styles.nombre}>{a.nombre}</div>
+                        <div style={styles.meta}>{a.edad ? `${a.edad} años` : "Sin edad"}</div>
+                      </div>
+                    </button>
+                  ) : (
+                    <div key={a.id} style={styles.card}>
+                      <div style={styles.cardLabel}>{a.nombre}{a.edad ? ` · ${a.edad} años` : ""}</div>
+                      {a.descripcion && <p style={styles.matchNote}>{a.descripcion}</p>}
+                      {(a.puntos || []).length > 0 && (
+                        <div style={{ marginTop: 6 }}>
+                          {a.puntos.map((p, i) => (
+                            <div key={i} style={styles.puntoRow}>
+                              <span style={{ ...styles.prioridadDot, background: p.prioridad === "Alta" ? COLORS.red : p.prioridad === "Media" ? COLORS.amber : COLORS.green }} />
+                              <span style={styles.puntoTexto}>{p.texto}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AlumnoGrupoDetalle({ alumno, academyCoaches, onBack, onUpdate, onDelete }) {
+  const [nuevoPuntoTexto, setNuevoPuntoTexto] = useState("");
+  const [nuevoPuntoPrioridad, setNuevoPuntoPrioridad] = useState("Media");
+
+  if (!alumno) {
+    return (
+      <div style={styles.content} className="content-safe">
+        <div className="spinner" style={styles.spinner} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div style={styles.header} className="header-safe">
+        <div style={styles.headerTopRow}>
+          <button style={styles.backBtn} onClick={onBack}>← Mis grupos</button>
+        </div>
+        <div style={styles.playerRow}>
+          <div style={styles.avatarBig}>{alumno.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>
+          <div style={{ flex: 1 }}>
+            <div style={styles.playerName}>{alumno.nombre}</div>
+            <div style={styles.playerMeta}>{alumno.deporte} · {alumno.categoria}</div>
+          </div>
+        </div>
+      </div>
+      <div style={styles.content} className="content-safe">
+        <div style={styles.section}>
+          <div style={styles.card}>
+            <div style={styles.cardLabel}>Datos</div>
+            <EditableRow k="Nombre" v={alumno.nombre} onSave={(v) => onUpdate({ nombre: v })} />
+            <EditableRow k="Edad" v={alumno.edad} onSave={(v) => onUpdate({ edad: v })} />
+            <EditableRow k="" v={alumno.descripcion || "Tocar para agregar una descripción"} onSave={(v) => onUpdate({ descripcion: v })} multiline />
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.cardLabel}>Grupo</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <select
+                style={styles.select}
+                value={alumno.deporte}
+                onChange={(e) => onUpdate({ deporte: e.target.value, categoria: GRUPOS[e.target.value][0] })}
+              >
+                {Object.keys(GRUPOS).map((d) => <option key={d}>{d}</option>)}
+              </select>
+              <select style={{ ...styles.select, flex: 1 }} value={alumno.categoria} onChange={(e) => onUpdate({ categoria: e.target.value })}>
+                {GRUPOS[alumno.deporte].map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.cardLabel}>Coach asignado</div>
+            <select
+              style={{ ...styles.select, width: "100%" }}
+              value={alumno.assignedCoachUid || ""}
+              onChange={(e) => onUpdate({ assignedCoachUid: e.target.value || null })}
+            >
+              <option value="">Sin asignar</option>
+              {(academyCoaches || []).map((c) => (
+                <option key={c.uid} value={c.uid}>{c.nombre || c.email || c.uid}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.cardLabel}>Lo que necesita trabajar</div>
+            {(alumno.puntos || []).map((p, i) => (
+              <div key={i} style={styles.puntoRow}>
+                <span style={{ ...styles.prioridadDot, background: p.prioridad === "Alta" ? COLORS.red : p.prioridad === "Media" ? COLORS.amber : COLORS.green }} />
+                <span style={{ ...styles.puntoTexto, flex: 1 }}>{p.texto}</span>
+                <button
+                  style={styles.deleteBtn}
+                  onClick={() => onUpdate({ puntos: alumno.puntos.filter((_, j) => j !== i) })}
+                  aria-label="Eliminar punto"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <div style={styles.miniForm}>
+              <input style={styles.input} placeholder="Nuevo punto por trabajar" value={nuevoPuntoTexto} onChange={(e) => setNuevoPuntoTexto(e.target.value)} />
+              <div style={{ display: "flex", gap: 6 }}>
+                <select style={styles.select} value={nuevoPuntoPrioridad} onChange={(e) => setNuevoPuntoPrioridad(e.target.value)}>
+                  <option>Alta</option>
+                  <option>Media</option>
+                  <option>Baja</option>
+                </select>
+                <button
+                  style={{ ...styles.addBtn, flex: 1 }}
+                  disabled={!nuevoPuntoTexto.trim()}
+                  onClick={() => {
+                    onUpdate({ puntos: [...(alumno.puntos || []), { texto: nuevoPuntoTexto.trim(), prioridad: nuevoPuntoPrioridad }] });
+                    setNuevoPuntoTexto("");
+                  }}
+                >
+                  + Agregar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button
+            style={styles.dangerBtn}
+            onClick={() => {
+              if (window.confirm(`¿Eliminar a ${alumno.nombre} de los grupos?`)) onDelete();
+            }}
+          >
+            Eliminar alumno de grupo
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function CoachesScreen({ coaches, nav, setNav, onAddCoach }) {
+  const [showNuevo, setShowNuevo] = useState(false);
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [creado, setCreado] = useState(null);
+
+  return (
+    <>
+      <div style={styles.header} className="header-safe">
+        <div style={styles.brand}>COUNTRY PADEL</div>
+        <div style={styles.titulo}>Coaches</div>
+      </div>
+      <div style={styles.content} className="content-safe">
+        <div style={{ marginBottom: 10 }}>
+          <NavSwitcher nav={nav} setNav={setNav} isAdmin={true} />
+        </div>
+
+        <button style={styles.secondaryBtn} onClick={() => { setShowNuevo((v) => !v); setCreado(null); setError(""); }}>
+          {showNuevo ? "Cancelar" : "+ Agregar coach"}
+        </button>
+
+        {showNuevo && (
+          <div style={{ ...styles.card, marginTop: 10 }}>
+            <div style={styles.cardLabel}>Nueva cuenta de coach</div>
+            <input style={styles.input} type="email" autoCapitalize="none" placeholder="Correo del coach" value={email} onChange={(e) => setEmail(e.target.value)} />
+            {error && <div style={styles.importError}>{error}</div>}
+            {creado && (
+              <div style={styles.backupHint}>
+                Cuenta creada. Pásale al coach estos datos para que entre:
+                <br /><strong>Correo:</strong> {creado.email}
+                <br /><strong>Contraseña temporal:</strong> {creado.password}
+              </div>
+            )}
+            {!creado && (
+              <button
+                style={{ ...styles.primaryBtn, marginTop: 4 }}
+                disabled={loading || !email.trim()}
+                onClick={async () => {
+                  setLoading(true);
+                  setError("");
+                  const password = Array.from(crypto.getRandomValues(new Uint8Array(10))).map((b) => b.toString(36)).join("").slice(0, 12);
+                  try {
+                    await onAddCoach(email.trim(), password);
+                    setCreado({ email: email.trim(), password });
+                    setEmail("");
+                  } catch (e) {
+                    setError(e.code === "auth/email-already-in-use" ? "Ese correo ya tiene una cuenta." : "No se pudo crear la cuenta.");
+                  }
+                  setLoading(false);
+                }}
+              >
+                {loading ? "Creando…" : "Crear cuenta"}
+              </button>
+            )}
+          </div>
+        )}
+
+        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+          {coaches === null && <div className="spinner" style={styles.spinner} />}
+          {coaches && coaches.length === 0 && <div style={styles.empty}>Aún no has agregado coaches.</div>}
+          {coaches && coaches.map((c) => (
+            <div key={c.uid} style={styles.row}>
+              <div style={styles.avatar}>{(c.nombre || c.email || "?").split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={styles.nombre}>{c.nombre || "Sin nombre todavía"}</div>
+                <div style={styles.meta}>{c.rol || "Coach"}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </>
