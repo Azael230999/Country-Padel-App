@@ -15,16 +15,21 @@ export function grupoLabel(deporte, categoria) {
   return `${deporte} · ${categoria}`;
 }
 
+// Paleta "Cancha de arcilla": el rojo de la tierra batida contra la piedra
+// caliza de Yucatán. clay = acento sólido (botones/estados activos, siempre
+// con texto claro encima); ball = acento brillante (para texto/insignias
+// sobre el header oscuro, donde clay no tiene suficiente contraste).
 export const COLORS = {
-  ink: "#12211F",
-  bg: "#FAF9F4",
-  card: "#fff",
-  border: "#E9E2D3",
-  lime: "#C4D82E",
-  muted: "#8A9A94",
-  red: "#C4553F",
-  amber: "#D9A93A",
-  green: "#B7C98A",
+  ink: "#2A1D14",
+  bg: "#F5EEE2",
+  card: "#FFFDF8",
+  border: "#E6D9C4",
+  clay: "#B24A28",
+  ball: "#D6B23E",
+  muted: "#8C7862",
+  red: "#8B2E2E",
+  amber: "#C97C3D",
+  green: "#6B8F5C",
 };
 
 export const DEFAULT_COACH = { nombre: "", rol: "Coach de Padel", telefono: "", email: "", bio: "", academyId: "", isAdmin: true };

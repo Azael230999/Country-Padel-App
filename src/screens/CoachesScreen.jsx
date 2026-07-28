@@ -122,8 +122,8 @@ export function CoachesScreen({ coaches, groupAssignments, onUpdateAssignments, 
                             key={c.uid}
                             style={{
                               ...styles.pagoChip,
-                              background: activo ? COLORS.ink : "transparent",
-                              color: activo ? COLORS.lime : COLORS.muted,
+                              background: activo ? COLORS.clay : "transparent",
+                              color: activo ? COLORS.card : COLORS.muted,
                               border: activo ? "none" : `1.5px solid ${COLORS.border}`,
                             }}
                             onClick={() => {

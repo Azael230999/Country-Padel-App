@@ -286,7 +286,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
                   <div style={styles.cardLabel}>{alumno.paquete.nombre}</div>
                   {alumno.paquete.vence && <div style={styles.paqueteVence}>Vence {fmt(alumno.paquete.vence) || alumno.paquete.vence}</div>}
                 </div>
-                <span style={{ ...styles.resultChip, background: alumno.paquete.finalizado ? COLORS.border : COLORS.lime }}>
+                <span style={{ ...styles.resultChip, background: alumno.paquete.finalizado ? COLORS.border : COLORS.ball }}>
                   {alumno.paquete.finalizado ? "SIN PAQUETE" : "ACTIVO"}
                 </span>
               </div>
@@ -359,7 +359,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
                 const pagada = clasesPagadas.includes(d);
                 const chipStyle = {
                   ...styles.pagoChip,
-                  background: pagada ? COLORS.lime : "transparent",
+                  background: pagada ? COLORS.ball : "transparent",
                   color: pagada ? COLORS.ink : COLORS.amber,
                   border: pagada ? "none" : `1.5px solid ${COLORS.amber}`,
                 };
@@ -398,7 +398,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
                   const dayStyle = {
                     ...styles.calDay,
                     background: asistio ? COLORS.ink : "transparent",
-                    color: asistio ? COLORS.lime : esHoy ? COLORS.ink : "#B7BDB8",
+                    color: asistio ? COLORS.ball : esHoy ? COLORS.ink : "#B5A48C",
                     border: esHoy && !asistio ? `1.5px solid ${COLORS.ink}` : "none",
                     fontWeight: esHoy ? 700 : 500,
                   };
@@ -437,7 +437,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
                   <div style={styles.matchTop}>
                     <span style={styles.matchDate}>{fmt(p.fecha) || p.fecha}</span>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ ...styles.resultChip, background: p.resu === "W" ? COLORS.lime : COLORS.border }}>
+                      <span style={{ ...styles.resultChip, background: p.resu === "W" ? COLORS.ball : COLORS.border }}>
                         {p.resu === "W" ? "GANÓ" : "PERDIÓ"}
                       </span>
                       {!readOnly && <button style={styles.deleteBtn} onClick={() => removeAt("partidos", i)} aria-label="Eliminar partido">×</button>}
