@@ -1,0 +1,758 @@
+import React, { useState, useEffect } from "react";
+import { storage } from "./storage.js";
+
+const COLORS = {
+  ink: "#12211F",
+  bg: "#FAF9F4",
+  card: "#fff",
+  border: "#E9E2D3",
+  lime: "#C4D82E",
+  muted: "#8A9A94",
+  red: "#C4553F",
+  amber: "#D9A93A",
+  green: "#B7C98A",
+};
+
+const seedStudents = () => [
+  {
+    id: "s1",
+    nombre: "Sofía Marín",
+    grupo: "Intermedio-B",
+    nivel: "4.5",
+    mano: "Diestra",
+    lado: "Revés",
+    telefono: "999 123 4567",
+    miembroDesde: "Marzo 2025",
+    fisico: "Molestia leve en el codo derecho — en seguimiento.",
+    paquete: { nombre: "Paquete 8 clases", total: 8, usadas: 6, vence: "2026-08-05", finalizado: false },
+    paquetesAnteriores: [
+      { periodo: "02 may — 28 jun", nombre: "Paquete 8 clases", clases: 8 },
+    ],
+    asistencias: ["2026-07-02", "2026-07-05", "2026-07-08", "2026-07-12", "2026-07-19", "2026-07-24"],
+    sesiones: [
+      { fecha: "2026-07-24", enfoque: "Remate y definición en red", ejercicios: "Remate cruzado x3 series\nVolea-remate con feed" },
+    ],
+    puntos: [
+      { texto: "Terminar el remate hacia adentro de la cancha, no fuera", prioridad: "Alta" },
+      { texto: "Variar la altura del saque", prioridad: "Media" },
+    ],
+    objetivos: [
+      { texto: "Competir en 4ta categoría en el Torneo de Agosto", plazo: "Corto plazo", fecha: "Ago 2026" },
+    ],
+    partidos: [
+      { fecha: "2026-07-22", rival: "Diego & Mau", resultado: "6-4 / 6-2", resu: "W", tags: "Volea alta, Salida de pared", nota: "Mejoró la salida de pared de revés." },
+    ],
+    notas: [
+      { fecha: "2026-07-24", autor: "Coach Ale", texto: "Quiere enfocarse en el remate 3 semanas antes del torneo." },
+    ],
+  },
+];
+
+async function loadStudents() {
+  try {
+    const res = await storage.get("students", false);
+    return JSON.parse(res.value);
+  } catch (e) {
+    const seed = seedStudents();
+    try {
+      await storage.set("students", JSON.stringify(seed), false);
+    } catch (e2) {}
+    return seed;
+  }
+}
+
+function fmt(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  const meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  return `${d} ${meses[parseInt(m, 10) - 1]}`;
+}
+
+export default function CountryPadelApp() {
+  const [students, setStudents] = useState(null);
+  const [view, setView] = useState("directorio");
+  const [selectedId, setSelectedId] = useState(null);
+  const [busqueda, setBusqueda] = useState("");
+  const [tab, setTab] = useState("perfil");
+  const [saveError, setSaveError] = useState(false);
+  const [showNuevoAlumno, setShowNuevoAlumno] = useState(false);
+
+  useEffect(() => {
+    loadStudents().then(setStudents);
+  }, []);
+
+  const persist = async (next) => {
+    setStudents(next);
+    try {
+      await storage.set("students", JSON.stringify(next), false);
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
+  };
+
+  const updateStudent = (id, patch) => {
+    const next = students.map((s) => (s.id === id ? { ...s, ...patch } : s));
+    persist(next);
+  };
+
+  const addStudent = (data) => {
+    const nuevo = {
+      id: "s" + Date.now(),
+      nombre: data.nombre,
+      grupo: data.grupo || "Sin grupo",
+      nivel: data.nivel || "—",
+      mano: "—",
+      lado: "—",
+      telefono: "",
+      miembroDesde: "",
+      fisico: "",
+      paquete: { nombre: "Sin paquete activo", total: 0, usadas: 0, vence: "", finalizado: true },
+      paquetesAnteriores: [],
+      asistencias: [],
+      sesiones: [],
+      puntos: [],
+      objetivos: [],
+      partidos: [],
+      notas: [],
+    };
+    persist([...(students || []), nuevo]);
+    setShowNuevoAlumno(false);
+  };
+
+  if (!students) {
+    return (
+      <div style={styles.app}>
+        <style>{fontImport}</style>
+        <div style={{ color: COLORS.bg, fontFamily: "'Archivo', sans-serif" }}>Cargando…</div>
+      </div>
+    );
+  }
+
+  const selected = students.find((s) => s.id === selectedId);
+
+  return (
+    <div style={styles.app} className="app-shell">
+      <style>{fontImport}</style>
+      <div style={styles.phone} className="phone-shell">
+        {saveError && (
+          <div style={styles.saveErrorBanner}>No se pudo guardar el último cambio. Sigue intentando o revisa tu conexión.</div>
+        )}
+        {view === "directorio" && (
+          <Directorio
+            students={students}
+            busqueda={busqueda}
+            setBusqueda={setBusqueda}
+            onSelect={(id) => {
+              setSelectedId(id);
+              setTab("perfil");
+              setView("perfil");
+            }}
+            showNuevoAlumno={showNuevoAlumno}
+            setShowNuevoAlumno={setShowNuevoAlumno}
+            addStudent={addStudent}
+          />
+        )}
+        {view === "perfil" && selected && (
+          <PerfilAlumno
+            alumno={selected}
+            tab={tab}
+            setTab={setTab}
+            onBack={() => setView("directorio")}
+            onUpdate={(patch) => updateStudent(selected.id, patch)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno, setShowNuevoAlumno, addStudent }) {
+  const [nombre, setNombre] = useState("");
+  const [grupo, setGrupo] = useState("");
+  const [nivel, setNivel] = useState("");
+
+  const filtrados = students.filter((s) => s.nombre.toLowerCase().includes(busqueda.toLowerCase()));
+
+  return (
+    <>
+      <div style={styles.header} className="header-safe">
+        <div style={styles.brand}>COUNTRY PADEL</div>
+        <div style={styles.titulo}>Alumnos</div>
+        <input
+          style={styles.search}
+          placeholder="Buscar alumno..."
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
+      </div>
+      <div style={styles.content} className="content-safe">
+        <button style={styles.secondaryBtn} onClick={() => setShowNuevoAlumno((v) => !v)}>
+          {showNuevoAlumno ? "Cancelar" : "+ Nuevo alumno"}
+        </button>
+
+        {showNuevoAlumno && (
+          <div style={{ ...styles.card, marginTop: 10 }}>
+            <input style={styles.input} placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+            <input style={styles.input} placeholder="Grupo (ej. Intermedio-B)" value={grupo} onChange={(e) => setGrupo(e.target.value)} />
+            <input style={styles.input} placeholder="Nivel (ej. 4.0)" value={nivel} onChange={(e) => setNivel(e.target.value)} />
+            <button
+              style={{ ...styles.primaryBtn, marginTop: 4 }}
+              disabled={!nombre.trim()}
+              onClick={() => {
+                addStudent({ nombre: nombre.trim(), grupo, nivel });
+                setNombre("");
+                setGrupo("");
+                setNivel("");
+              }}
+            >
+              Guardar alumno
+            </button>
+          </div>
+        )}
+
+        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+          {filtrados.length === 0 && <div style={styles.empty}>No hay alumnos que coincidan.</div>}
+          {filtrados.map((s) => {
+            const restantes = s.paquete.finalizado ? 0 : s.paquete.total - s.paquete.usadas;
+            const alerta = !s.paquete.finalizado && restantes <= 1;
+            return (
+              <button key={s.id} onClick={() => onSelect(s.id)} style={styles.row}>
+                <div style={styles.avatar}>{s.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>
+                <div style={{ flex: 1, textAlign: "left" }}>
+                  <div style={styles.nombre}>{s.nombre}</div>
+                  <div style={styles.meta}>{s.grupo} · Nivel {s.nivel}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ ...styles.restantesTag, color: alerta ? COLORS.red : COLORS.muted }}>
+                    {s.paquete.finalizado ? "sin paquete" : `${restantes} clase${restantes !== 1 ? "s" : ""}`}
+                  </span>
+                  {alerta && <span style={styles.alertaDot} />}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate }) {
+  const restantes = alumno.paquete.finalizado ? 0 : alumno.paquete.total - alumno.paquete.usadas;
+
+  // --- Entrenamiento form state ---
+  const [nuevaSesionEnfoque, setNuevaSesionEnfoque] = useState("");
+  const [nuevaSesionEjercicios, setNuevaSesionEjercicios] = useState("");
+  const [nuevoPuntoTexto, setNuevoPuntoTexto] = useState("");
+  const [nuevoPuntoPrioridad, setNuevoPuntoPrioridad] = useState("Media");
+  const [nuevoObjTexto, setNuevoObjTexto] = useState("");
+  const [nuevoObjPlazo, setNuevoObjPlazo] = useState("Corto plazo");
+  const [nuevoObjFecha, setNuevoObjFecha] = useState("");
+
+  // --- Partidos form state ---
+  const [pFecha, setPFecha] = useState("");
+  const [pRival, setPRival] = useState("");
+  const [pResultado, setPResultado] = useState("");
+  const [pResu, setPResu] = useState("W");
+  const [pTags, setPTags] = useState("");
+  const [pNota, setPNota] = useState("");
+
+  // --- Notas form state ---
+  const [nAutor, setNAutor] = useState("");
+  const [nTexto, setNTexto] = useState("");
+
+  // --- Nuevo paquete form (when finalizado) ---
+  const [npNombre, setNpNombre] = useState("Paquete 8 clases");
+  const [npTotal, setNpTotal] = useState(8);
+  const [npVence, setNpVence] = useState("");
+
+  const hoy = new Date();
+  const anioMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
+  const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+  const primerDiaSemana = (new Date(hoy.getFullYear(), hoy.getMonth(), 1).getDay() + 6) % 7; // lunes=0
+
+  const toggleDia = (dia) => {
+    const iso = `${anioMes}-${String(dia).padStart(2, "0")}`;
+    const asiste = alumno.asistencias.includes(iso);
+    const next = asiste ? alumno.asistencias.filter((d) => d !== iso) : [...alumno.asistencias, iso];
+    onUpdate({ asistencias: next });
+  };
+
+  return (
+    <>
+      <div style={styles.header} className="header-safe">
+        <div style={styles.headerTopRow}>
+          <button style={styles.backBtn} onClick={onBack}>← Alumnos</button>
+        </div>
+        <div style={styles.playerRow}>
+          <div style={styles.avatarBig}>{alumno.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>
+          <div style={{ flex: 1 }}>
+            <div style={styles.playerName}>{alumno.nombre}</div>
+            <div style={styles.playerMeta}>{alumno.lado} · {alumno.mano} · {alumno.grupo}</div>
+          </div>
+          <div style={styles.levelBadge}>{alumno.nivel}</div>
+        </div>
+      </div>
+
+      <div style={styles.tabs}>
+        {[
+          ["perfil", "Perfil"],
+          ["entrenamiento", "Entreno"],
+          ["asistencia", "Asistencia"],
+          ["partidos", "Partidos"],
+          ["notas", "Notas"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            style={{ ...styles.tabBtn, color: tab === key ? COLORS.ink : COLORS.muted, fontWeight: tab === key ? 700 : 500 }}
+          >
+            {label}
+            {tab === key && <div style={styles.tabIndicator} />}
+          </button>
+        ))}
+      </div>
+
+      <div style={styles.content} className="content-safe">
+        {tab === "perfil" && (
+          <div style={styles.section}>
+            <div style={styles.card}>
+              <div style={styles.cardLabel}>Datos de contacto</div>
+              <EditableRow k="Teléfono" v={alumno.telefono} onSave={(v) => onUpdate({ telefono: v })} />
+              <EditableRow k="Miembro desde" v={alumno.miembroDesde} onSave={(v) => onUpdate({ miembroDesde: v })} />
+              <EditableRow k="Grupo" v={alumno.grupo} onSave={(v) => onUpdate({ grupo: v })} />
+              <EditableRow k="Nivel" v={alumno.nivel} onSave={(v) => onUpdate({ nivel: v })} />
+            </div>
+            <div style={styles.card}>
+              <div style={styles.cardLabel}>Físico / lesiones</div>
+              <EditableRow k="" v={alumno.fisico || "Sin observaciones"} onSave={(v) => onUpdate({ fisico: v })} multiline />
+            </div>
+          </div>
+        )}
+
+        {tab === "entrenamiento" && (
+          <div style={styles.section}>
+            <div style={styles.card}>
+              <div style={styles.cardLabel}>Objetivos</div>
+              {alumno.objetivos.map((o, i) => (
+                <div key={i} style={styles.objetivoRow}>
+                  <div>
+                    <div style={styles.objetivoTexto}>{o.texto}</div>
+                    <div style={styles.objetivoPlazo}>{o.plazo}</div>
+                  </div>
+                  <span style={styles.objetivoFecha}>{o.fecha}</span>
+                </div>
+              ))}
+              <div style={styles.miniForm}>
+                <input style={styles.input} placeholder="Nuevo objetivo" value={nuevoObjTexto} onChange={(e) => setNuevoObjTexto(e.target.value)} />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <select style={styles.select} value={nuevoObjPlazo} onChange={(e) => setNuevoObjPlazo(e.target.value)}>
+                    <option>Corto plazo</option>
+                    <option>Mediano plazo</option>
+                    <option>En curso</option>
+                  </select>
+                  <input style={{ ...styles.input, flex: 1 }} placeholder="Fecha (ej. Ago 2026)" value={nuevoObjFecha} onChange={(e) => setNuevoObjFecha(e.target.value)} />
+                </div>
+                <button
+                  style={styles.addBtn}
+                  disabled={!nuevoObjTexto.trim()}
+                  onClick={() => {
+                    onUpdate({ objetivos: [...alumno.objetivos, { texto: nuevoObjTexto.trim(), plazo: nuevoObjPlazo, fecha: nuevoObjFecha }] });
+                    setNuevoObjTexto("");
+                    setNuevoObjFecha("");
+                  }}
+                >
+                  + Agregar objetivo
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.card}>
+              <div style={styles.cardLabel}>Puntos por desarrollar</div>
+              {alumno.puntos.map((p, i) => (
+                <div key={i} style={styles.puntoRow}>
+                  <span style={{ ...styles.prioridadDot, background: p.prioridad === "Alta" ? COLORS.red : p.prioridad === "Media" ? COLORS.amber : COLORS.green }} />
+                  <span style={styles.puntoTexto}>{p.texto}</span>
+                </div>
+              ))}
+              <div style={styles.miniForm}>
+                <input style={styles.input} placeholder="Nuevo punto por desarrollar" value={nuevoPuntoTexto} onChange={(e) => setNuevoPuntoTexto(e.target.value)} />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <select style={styles.select} value={nuevoPuntoPrioridad} onChange={(e) => setNuevoPuntoPrioridad(e.target.value)}>
+                    <option>Alta</option>
+                    <option>Media</option>
+                    <option>Baja</option>
+                  </select>
+                  <button
+                    style={{ ...styles.addBtn, flex: 1 }}
+                    disabled={!nuevoPuntoTexto.trim()}
+                    onClick={() => {
+                      onUpdate({ puntos: [...alumno.puntos, { texto: nuevoPuntoTexto.trim(), prioridad: nuevoPuntoPrioridad }] });
+                      setNuevoPuntoTexto("");
+                    }}
+                  >
+                    + Agregar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.sesionesLabel}>Bitácora de clases</div>
+            {[...alumno.sesiones].reverse().map((s, i) => (
+              <div key={i} style={styles.sesionCard}>
+                <span style={styles.matchDate}>{fmt(s.fecha) || s.fecha}</span>
+                <div style={styles.sesionEnfoque}>{s.enfoque}</div>
+                {s.ejercicios && (
+                  <ul style={styles.ejercicioList}>
+                    {s.ejercicios.split("\n").filter(Boolean).map((e, j) => <li key={j} style={styles.ejercicioItem}>{e}</li>)}
+                  </ul>
+                )}
+              </div>
+            ))}
+            <div style={{ ...styles.card, marginTop: 4 }}>
+              <div style={styles.cardLabel}>Registrar clase de hoy</div>
+              <input style={styles.input} placeholder="Enfoque de la clase" value={nuevaSesionEnfoque} onChange={(e) => setNuevaSesionEnfoque(e.target.value)} />
+              <textarea style={styles.textarea} placeholder="Ejercicios (uno por línea)" value={nuevaSesionEjercicios} onChange={(e) => setNuevaSesionEjercicios(e.target.value)} />
+              <button
+                style={styles.addBtn}
+                disabled={!nuevaSesionEnfoque.trim()}
+                onClick={() => {
+                  const iso = hoy.toISOString().slice(0, 10);
+                  onUpdate({ sesiones: [...alumno.sesiones, { fecha: iso, enfoque: nuevaSesionEnfoque.trim(), ejercicios: nuevaSesionEjercicios }] });
+                  setNuevaSesionEnfoque("");
+                  setNuevaSesionEjercicios("");
+                }}
+              >
+                + Guardar clase
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tab === "asistencia" && (
+          <div style={styles.section}>
+            <div style={styles.card}>
+              <div style={styles.paqueteTop}>
+                <div>
+                  <div style={styles.cardLabel}>{alumno.paquete.nombre}</div>
+                  {alumno.paquete.vence && <div style={styles.paqueteVence}>Vence {fmt(alumno.paquete.vence) || alumno.paquete.vence}</div>}
+                </div>
+                <span style={{ ...styles.resultChip, background: alumno.paquete.finalizado ? COLORS.border : COLORS.lime }}>
+                  {alumno.paquete.finalizado ? "SIN PAQUETE" : "ACTIVO"}
+                </span>
+              </div>
+
+              {!alumno.paquete.finalizado && (
+                <>
+                  <div style={styles.paqueteBarWrap}>
+                    <div style={styles.paqueteBarBg}>
+                      <div style={{ ...styles.paqueteBarFill, width: `${(alumno.paquete.usadas / alumno.paquete.total) * 100}%` }} />
+                    </div>
+                    <div style={styles.paqueteNums}>
+                      <span style={styles.paqueteRestantes}>{restantes} clases restantes</span>
+                      <div style={styles.usadasControl}>
+                        <button style={styles.stepBtn} disabled={alumno.paquete.usadas === 0} onClick={() => onUpdate({ paquete: { ...alumno.paquete, usadas: alumno.paquete.usadas - 1 } })}>−</button>
+                        <span style={styles.paqueteUsadas}>{alumno.paquete.usadas}/{alumno.paquete.total} usadas</span>
+                        <button style={styles.stepBtn} disabled={alumno.paquete.usadas === alumno.paquete.total} onClick={() => onUpdate({ paquete: { ...alumno.paquete, usadas: alumno.paquete.usadas + 1 } })}>+</button>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    style={styles.finalizarBtn}
+                    onClick={() => {
+                      const periodo = `Paquete finalizado el ${hoy.toISOString().slice(0, 10)}`;
+                      onUpdate({
+                        paquetesAnteriores: [...alumno.paquetesAnteriores, { periodo, nombre: alumno.paquete.nombre, clases: alumno.paquete.total }],
+                        paquete: { nombre: "Sin paquete activo", total: 0, usadas: 0, vence: "", finalizado: true },
+                      });
+                    }}
+                  >
+                    Finalizar paquete
+                  </button>
+                </>
+              )}
+
+              {alumno.paquete.finalizado && (
+                <div style={styles.miniForm}>
+                  <input style={styles.input} placeholder="Nombre del paquete" value={npNombre} onChange={(e) => setNpNombre(e.target.value)} />
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input style={{ ...styles.input, width: 70 }} type="number" min="1" value={npTotal} onChange={(e) => setNpTotal(e.target.value)} />
+                    <input style={{ ...styles.input, flex: 1 }} type="date" value={npVence} onChange={(e) => setNpVence(e.target.value)} />
+                  </div>
+                  <button
+                    style={styles.addBtn}
+                    onClick={() => onUpdate({ paquete: { nombre: npNombre, total: parseInt(npTotal) || 8, usadas: 0, vence: npVence, finalizado: false } })}
+                  >
+                    + Activar nuevo paquete
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div style={styles.card}>
+              <div style={styles.cardLabel}>Asistencia — {hoy.toLocaleDateString("es-MX", { month: "long", year: "numeric" })}</div>
+              <div style={styles.calGrid}>
+                {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => <div key={i} style={styles.calDow}>{d}</div>)}
+                {Array.from({ length: primerDiaSemana }).map((_, i) => <div key={"b" + i} />)}
+                {Array.from({ length: diasEnMes }).map((_, i) => {
+                  const dia = i + 1;
+                  const iso = `${anioMes}-${String(dia).padStart(2, "0")}`;
+                  const asistio = alumno.asistencias.includes(iso);
+                  const esHoy = dia === hoy.getDate();
+                  return (
+                    <button
+                      key={dia}
+                      onClick={() => toggleDia(dia)}
+                      style={{
+                        ...styles.calDay,
+                        background: asistio ? COLORS.ink : "transparent",
+                        color: asistio ? COLORS.lime : esHoy ? COLORS.ink : "#B7BDB8",
+                        border: esHoy && !asistio ? `1.5px solid ${COLORS.ink}` : "none",
+                        fontWeight: esHoy ? 700 : 500,
+                      }}
+                    >
+                      {dia}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={styles.calFootnote}>Toca un día para marcar/quitar asistencia · {alumno.asistencias.length} clases este mes</div>
+            </div>
+
+            {alumno.paquetesAnteriores.length > 0 && (
+              <div style={styles.card}>
+                <div style={styles.cardLabel}>Paquetes anteriores</div>
+                {alumno.paquetesAnteriores.map((p, i) => (
+                  <div key={i} style={styles.infoRow}>
+                    <span style={styles.infoK}>{p.nombre}</span>
+                    <span style={styles.infoV}>{p.clases} clases</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "partidos" && (
+          <div style={styles.section}>
+            {[...alumno.partidos].reverse().map((p, i) => (
+              <div key={i} style={styles.matchCard}>
+                <div style={styles.matchTop}>
+                  <span style={styles.matchDate}>{fmt(p.fecha) || p.fecha}</span>
+                  <span style={{ ...styles.resultChip, background: p.resu === "W" ? COLORS.lime : COLORS.border }}>
+                    {p.resu === "W" ? "GANÓ" : "PERDIÓ"}
+                  </span>
+                </div>
+                <div style={styles.rival}>{p.rival}</div>
+                <div style={styles.score}>{p.resultado}</div>
+                {p.tags && (
+                  <div style={styles.tagRow}>
+                    {p.tags.split(",").map((t) => t.trim()).filter(Boolean).map((t, j) => <span key={j} style={styles.tag}>{t}</span>)}
+                  </div>
+                )}
+                {p.nota && <p style={styles.matchNote}>{p.nota}</p>}
+              </div>
+            ))}
+            <div style={styles.card}>
+              <div style={styles.cardLabel}>Registrar partido</div>
+              <input style={styles.input} type="date" value={pFecha} onChange={(e) => setPFecha(e.target.value)} />
+              <input style={styles.input} placeholder="Rival / torneo" value={pRival} onChange={(e) => setPRival(e.target.value)} />
+              <div style={{ display: "flex", gap: 6 }}>
+                <input style={{ ...styles.input, flex: 1 }} placeholder="Resultado (6-4 / 6-2)" value={pResultado} onChange={(e) => setPResultado(e.target.value)} />
+                <select style={styles.select} value={pResu} onChange={(e) => setPResu(e.target.value)}>
+                  <option value="W">Ganó</option>
+                  <option value="L">Perdió</option>
+                </select>
+              </div>
+              <input style={styles.input} placeholder="Tags (separados por coma)" value={pTags} onChange={(e) => setPTags(e.target.value)} />
+              <textarea style={styles.textarea} placeholder="Nota del coach" value={pNota} onChange={(e) => setPNota(e.target.value)} />
+              <button
+                style={styles.addBtn}
+                disabled={!pRival.trim() || !pFecha}
+                onClick={() => {
+                  onUpdate({ partidos: [...alumno.partidos, { fecha: pFecha, rival: pRival, resultado: pResultado, resu: pResu, tags: pTags, nota: pNota }] });
+                  setPFecha(""); setPRival(""); setPResultado(""); setPTags(""); setPNota("");
+                }}
+              >
+                + Guardar partido
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tab === "notas" && (
+          <div style={styles.section}>
+            <div style={styles.timeline}>
+              {[...alumno.notas].reverse().map((n, i) => (
+                <div key={i} style={styles.timelineItem}>
+                  <div style={styles.timelineDot} />
+                  <div style={{ flex: 1 }}>
+                    <div style={styles.noteTop}>
+                      <span style={styles.noteAuthor}>{n.autor}</span>
+                      <span style={styles.noteDate}>{fmt(n.fecha) || n.fecha}</span>
+                    </div>
+                    <p style={styles.noteText}>{n.texto}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={styles.card}>
+              <div style={styles.cardLabel}>Nueva nota</div>
+              <input style={styles.input} placeholder="Tu nombre" value={nAutor} onChange={(e) => setNAutor(e.target.value)} />
+              <textarea style={styles.textarea} placeholder="Observación..." value={nTexto} onChange={(e) => setNTexto(e.target.value)} />
+              <button
+                style={styles.addBtn}
+                disabled={!nTexto.trim()}
+                onClick={() => {
+                  const iso = hoy.toISOString().slice(0, 10);
+                  onUpdate({ notas: [...alumno.notas, { fecha: iso, autor: nAutor.trim() || "Coach", texto: nTexto.trim() }] });
+                  setNTexto("");
+                }}
+              >
+                + Guardar nota
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function EditableRow({ k, v, onSave, multiline }) {
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState(v || "");
+
+  if (editando) {
+    return (
+      <div style={{ padding: "6px 0" }}>
+        {multiline ? (
+          <textarea style={styles.textarea} value={valor} onChange={(e) => setValor(e.target.value)} autoFocus />
+        ) : (
+          <input style={styles.input} value={valor} onChange={(e) => setValor(e.target.value)} autoFocus />
+        )}
+        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+          <button style={styles.addBtn} onClick={() => { onSave(valor); setEditando(false); }}>Guardar</button>
+          <button style={styles.secondaryBtnSmall} onClick={() => { setValor(v || ""); setEditando(false); }}>Cancelar</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.infoRow} onClick={() => setEditando(true)}>
+      {k && <span style={styles.infoK}>{k}</span>}
+      <span style={{ ...styles.infoV, cursor: "pointer", flex: k ? undefined : 1 }}>{v || "Tocar para agregar"}</span>
+    </div>
+  );
+}
+
+const fontImport = `
+  @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+  * { box-sizing: border-box; }
+  html, body, #root { height: 100%; }
+  body { margin: 0; }
+  input, textarea, select, button { -webkit-tap-highlight-color: transparent; }
+
+  @media (max-width: 480px) {
+    .app-shell { padding: 0 !important; align-items: stretch !important; }
+    .phone-shell {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: 100dvh !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+  }
+
+  @media (display-mode: standalone) {
+    .header-safe { padding-top: max(18px, env(safe-area-inset-top)) !important; }
+    .content-safe { padding-bottom: max(30px, env(safe-area-inset-bottom)) !important; }
+  }
+`;
+
+const styles = {
+  app: { minHeight: "100vh", background: "#0F1E1C", display: "flex", justifyContent: "center", fontFamily: "'Archivo', sans-serif", padding: "24px 12px" },
+  phone: { width: 390, maxWidth: "100%", background: COLORS.bg, borderRadius: 28, overflow: "hidden", boxShadow: "0 30px 60px rgba(0,0,0,0.4)", display: "flex", flexDirection: "column", height: 780, position: "relative" },
+  saveErrorBanner: { position: "absolute", top: 0, left: 0, right: 0, background: COLORS.red, color: "#fff", fontSize: 11, textAlign: "center", padding: "6px 10px", zIndex: 5 },
+  header: { background: COLORS.ink, color: COLORS.bg, padding: "18px 18px 0" },
+  headerTopRow: { marginBottom: 10 },
+  backBtn: { background: "none", border: "none", color: COLORS.bg, fontSize: 13, cursor: "pointer", padding: 0, opacity: 0.85, fontFamily: "'Archivo', sans-serif" },
+  brand: { fontFamily: "'Archivo Black', sans-serif", fontSize: 12, letterSpacing: 2, opacity: 0.8 },
+  titulo: { fontFamily: "'Archivo Black', sans-serif", fontSize: 24, marginTop: 8, marginBottom: 14 },
+  search: { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: COLORS.bg, fontSize: 13.5, fontFamily: "'Archivo', sans-serif", outline: "none", marginBottom: 16 },
+  playerRow: { display: "flex", alignItems: "center", gap: 14, paddingBottom: 16 },
+  avatarBig: { width: 50, height: 50, borderRadius: "50%", background: COLORS.lime, color: COLORS.ink, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, fontFamily: "'Archivo Black', sans-serif", flexShrink: 0 },
+  playerName: { fontFamily: "'Archivo Black', sans-serif", fontSize: 19 },
+  playerMeta: { fontSize: 12, opacity: 0.65, marginTop: 3 },
+  levelBadge: { background: "rgba(196,216,46,0.15)", border: "1px solid rgba(196,216,46,0.5)", color: COLORS.lime, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, borderRadius: 8, padding: "5px 9px" },
+  tabs: { display: "flex", background: COLORS.bg, borderBottom: `1px solid ${COLORS.border}`, padding: "0 14px", overflowX: "auto", whiteSpace: "nowrap" },
+  tabBtn: { background: "none", border: "none", padding: "13px 0", marginRight: 18, fontSize: 13.5, cursor: "pointer", position: "relative", fontFamily: "'Archivo', sans-serif", flexShrink: 0 },
+  tabIndicator: { position: "absolute", bottom: -1, left: 0, right: 0, height: 3, background: COLORS.lime, borderRadius: 2 },
+  content: { flex: 1, overflowY: "auto", padding: "16px 18px 30px", WebkitOverflowScrolling: "touch" },
+  section: { display: "flex", flexDirection: "column", gap: 12 },
+  card: { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 14 },
+  cardLabel: { fontSize: 10.5, letterSpacing: 1, color: COLORS.muted, fontWeight: 700, marginBottom: 8, textTransform: "uppercase" },
+  empty: { fontSize: 13, color: COLORS.muted, textAlign: "center", padding: "30px 10px" },
+  row: { display: "flex", alignItems: "center", gap: 12, background: COLORS.card, border: `1.5px solid ${COLORS.border}`, borderRadius: 14, padding: 12, cursor: "pointer", width: "100%", fontFamily: "'Archivo', sans-serif" },
+  avatar: { width: 40, height: 40, borderRadius: "50%", background: "#EFF3E2", color: COLORS.ink, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, fontFamily: "'Archivo Black', sans-serif", flexShrink: 0 },
+  nombre: { fontSize: 14, fontWeight: 700, color: COLORS.ink },
+  meta: { fontSize: 11.5, color: COLORS.muted, marginTop: 2 },
+  restantesTag: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, fontWeight: 700 },
+  alertaDot: { width: 7, height: 7, borderRadius: "50%", background: COLORS.red },
+  infoRow: { display: "flex", justifyContent: "space-between", fontSize: 13.5, padding: "7px 0", cursor: "pointer" },
+  infoK: { color: COLORS.muted },
+  infoV: { color: COLORS.ink, fontWeight: 600 },
+  objetivoRow: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, borderBottom: "1px solid #F0EDE3", paddingBottom: 9, marginBottom: 9 },
+  objetivoTexto: { fontSize: 13, color: COLORS.ink, fontWeight: 600, lineHeight: 1.4 },
+  objetivoPlazo: { fontSize: 10.5, color: COLORS.muted, marginTop: 2 },
+  objetivoFecha: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#7A8C87", whiteSpace: "nowrap" },
+  puntoRow: { display: "flex", alignItems: "flex-start", gap: 9, marginBottom: 8 },
+  prioridadDot: { width: 8, height: 8, borderRadius: "50%", marginTop: 5, flexShrink: 0 },
+  puntoTexto: { fontSize: 13, color: COLORS.ink, lineHeight: 1.4 },
+  sesionesLabel: { fontSize: 10.5, letterSpacing: 1, color: COLORS.muted, fontWeight: 700, marginTop: 4 },
+  sesionCard: { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 14, marginBottom: 4 },
+  sesionEnfoque: { fontSize: 14, fontWeight: 700, color: COLORS.ink, marginTop: 6 },
+  matchDate: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.muted },
+  ejercicioList: { margin: "8px 0 0", paddingLeft: 18 },
+  ejercicioItem: { fontSize: 12.5, color: "#5C6D67", lineHeight: 1.6 },
+  paqueteTop: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" },
+  paqueteVence: { fontSize: 11.5, color: COLORS.muted, marginTop: 2 },
+  paqueteBarWrap: { marginTop: 12 },
+  paqueteBarBg: { height: 8, borderRadius: 6, background: "#EFEAE0", overflow: "hidden" },
+  paqueteBarFill: { height: "100%", background: COLORS.ink, borderRadius: 6 },
+  paqueteNums: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
+  paqueteRestantes: { fontSize: 13, fontWeight: 700, color: COLORS.ink },
+  paqueteUsadas: { fontSize: 11.5, color: COLORS.muted },
+  usadasControl: { display: "flex", alignItems: "center", gap: 8 },
+  stepBtn: { width: 22, height: 22, borderRadius: 6, border: "1px solid #D8D0BE", background: "#fff", color: COLORS.ink, fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
+  finalizarBtn: { width: "100%", marginTop: 12, background: "transparent", border: `1.5px solid ${COLORS.ink}`, color: COLORS.ink, borderRadius: 10, padding: "9px 0", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "'Archivo', sans-serif" },
+  calGrid: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginTop: 4 },
+  calDow: { fontSize: 10, color: "#B7BDB8", textAlign: "center", fontWeight: 700, paddingBottom: 4 },
+  calDay: { fontSize: 11.5, textAlign: "center", padding: "6px 0", borderRadius: 7, fontFamily: "'JetBrains Mono', monospace", border: "none", cursor: "pointer", background: "transparent" },
+  calFootnote: { fontSize: 11, color: "#7A8C87", marginTop: 10 },
+  matchCard: { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 14 },
+  matchTop: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  resultChip: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, padding: "3px 8px", borderRadius: 6, color: COLORS.ink },
+  rival: { fontSize: 15, fontWeight: 700, marginTop: 8, color: COLORS.ink },
+  score: { fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: COLORS.ink, marginTop: 2 },
+  tagRow: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 },
+  tag: { fontSize: 10.5, background: "#EFF3E2", color: "#4E5C3B", padding: "4px 8px", borderRadius: 20, fontWeight: 600 },
+  matchNote: { fontSize: 12.5, color: "#5C6D67", marginTop: 10, lineHeight: 1.5 },
+  timeline: { position: "relative", paddingLeft: 4 },
+  timelineItem: { display: "flex", gap: 12, paddingBottom: 20, position: "relative" },
+  timelineDot: { width: 9, height: 9, borderRadius: "50%", background: COLORS.lime, marginTop: 5, flexShrink: 0, boxShadow: "0 0 0 4px #EFF3E2" },
+  noteTop: { display: "flex", justifyContent: "space-between" },
+  noteAuthor: { fontSize: 13, fontWeight: 700, color: COLORS.ink },
+  noteDate: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.muted },
+  noteText: { fontSize: 13, color: "#3F4C47", marginTop: 4, lineHeight: 1.5 },
+  input: { width: "100%", padding: "9px 10px", borderRadius: 9, border: `1px solid ${COLORS.border}`, fontSize: 13, fontFamily: "'Archivo', sans-serif", marginBottom: 7, outline: "none", color: COLORS.ink },
+  textarea: { width: "100%", padding: "9px 10px", borderRadius: 9, border: `1px solid ${COLORS.border}`, fontSize: 13, fontFamily: "'Archivo', sans-serif", marginBottom: 7, outline: "none", minHeight: 60, resize: "vertical", color: COLORS.ink },
+  select: { padding: "9px 8px", borderRadius: 9, border: `1px solid ${COLORS.border}`, fontSize: 12.5, fontFamily: "'Archivo', sans-serif", marginBottom: 7, color: COLORS.ink, background: "#fff" },
+  miniForm: { marginTop: 10, borderTop: `1px solid ${COLORS.border}`, paddingTop: 10 },
+  addBtn: { background: COLORS.ink, color: COLORS.lime, border: "none", borderRadius: 9, padding: "9px 0", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "'Archivo', sans-serif", width: "100%" },
+  secondaryBtn: { background: "transparent", border: `1.5px solid ${COLORS.ink}`, color: COLORS.ink, borderRadius: 10, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Archivo', sans-serif", width: "100%" },
+  secondaryBtnSmall: { background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.muted, borderRadius: 9, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Archivo', sans-serif", flex: 1 },
+  primaryBtn: { background: COLORS.ink, color: COLORS.lime, border: "none", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Archivo', sans-serif", width: "100%" },
+};
