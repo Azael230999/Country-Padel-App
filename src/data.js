@@ -101,13 +101,33 @@ export function watchAcademyStudentsForAdmin(academyId, callback, onError) {
   );
 }
 
-export function watchAcademyStudentsForCoach(coachUid, callback, onError) {
-  const q = query(academyStudentsCol, where("assignedCoachUid", "==", coachUid));
+// grupoKeys: claves ya combinadas con el academyId (ver buildGrupoKey en App.jsx),
+// para que el filtro "in" no necesite un índice compuesto por academyId.
+export function watchAcademyStudentsForCoach(grupoKeys, callback, onError) {
+  if (!grupoKeys || grupoKeys.length === 0) {
+    callback([]);
+    return () => {};
+  }
+  const q = query(academyStudentsCol, where("grupoKey", "in", grupoKeys));
   return onSnapshot(
     q,
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     onError
   );
+}
+
+// ---------- Asignación de coaches a grupos (deporte + categoría) ----------
+
+export function watchGroupAssignments(academyId, callback, onError) {
+  return onSnapshot(
+    doc(db, "groupAssignments", academyId),
+    (snap) => callback(snap.exists() ? snap.data().asignaciones || {} : {}),
+    onError
+  );
+}
+
+export async function saveGroupAssignments(academyId, asignaciones) {
+  await setDoc(doc(db, "groupAssignments", academyId), { asignaciones }, { merge: true });
 }
 
 export async function createAcademyStudent(academyId, data) {
