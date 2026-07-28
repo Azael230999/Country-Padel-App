@@ -129,6 +129,22 @@ export async function saveGroupAssignments(academyId, asignaciones) {
   await setDoc(doc(db, "groupAssignments", academyId), { asignaciones }, { merge: true });
 }
 
+// ---------- Configuración de categorías de grupo (editable por el admin) ----------
+
+// callback recibe null si la academia todavía no tiene config propia (para
+// que el llamador la siembre con los valores por defecto).
+export function watchAcademyConfig(academyId, callback, onError) {
+  return onSnapshot(
+    doc(db, "academyConfig", academyId),
+    (snap) => callback(snap.exists() ? snap.data().grupos || {} : null),
+    onError
+  );
+}
+
+export async function saveAcademyConfig(academyId, grupos) {
+  await setDoc(doc(db, "academyConfig", academyId), { grupos }, { merge: true });
+}
+
 // Copia la lista de coaches asignados a cada alumno de ese grupo, para que la
 // regla de seguridad pueda revisarlo sin leer otro documento.
 export async function applyGroupAssignmentToStudents(studentIds, coachUids) {

@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAcademyAdmin(academyId) {
+      return request.auth != null && request.auth.uid == academyId;
+    }
+
+    match /coaches/{uid} {
+      allow get: if true;
+      allow list: if request.auth != null && resource.data.academyId == request.auth.uid;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /students/{studentId} {
+      allow get: if true;
+      allow list: if request.auth != null && request.auth.uid == resource.data.coachUid;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.coachUid;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.coachUid;
+    }
+
+    match /groupAssignments/{academyId} {
+      allow get, write: if isAcademyAdmin(academyId);
+    }
+
+    match /academyConfig/{academyId} {
+      allow get, write: if isAcademyAdmin(academyId);
+    }
+
+    match /academyStudents/{id} {
+      allow get, list: if isAcademyAdmin(resource.data.academyId) ||
+        (request.auth != null && request.auth.uid in resource.data.assignedCoachUids);
+      allow create: if isAcademyAdmin(request.resource.data.academyId);
+      allow update, delete: if isAcademyAdmin(resource.data.academyId);
+    }
+  }
+}

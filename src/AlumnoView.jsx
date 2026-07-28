@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { watchStudentPublic, getCoachProfile } from "./data.js";
-import { PerfilAlumno } from "./App.jsx";
+import { PerfilAlumno } from "./screens/PerfilAlumno.jsx";
 
 const COLORS = {
   ink: "#12211F",
