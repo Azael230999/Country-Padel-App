@@ -4,6 +4,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentSingleTabManager,
+  getFirestore,
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -29,7 +30,8 @@ export async function withSecondaryAuth(fn) {
   const secondary = initializeApp(firebaseConfig, "secondary-" + Date.now());
   try {
     const secondaryAuth = getAuth(secondary);
-    return await fn(secondaryAuth);
+    const secondaryDb = getFirestore(secondary);
+    return await fn(secondaryAuth, secondaryDb);
   } finally {
     await deleteApp(secondary);
   }

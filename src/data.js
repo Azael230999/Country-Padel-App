@@ -73,14 +73,14 @@ export function watchAcademyCoaches(academyId, callback, onError) {
 // Crea la cuenta de un coach nuevo para la academia, sin afectar la sesión
 // del admin que la está creando.
 export async function createCoachAccount(academyId, email, password) {
-  return withSecondaryAuth(async (secondaryAuth) => {
+  return withSecondaryAuth(async (secondaryAuth, secondaryDb) => {
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
     const uid = cred.user.uid;
-    await setDoc(doc(db, "coaches", uid), {
+    await setDoc(doc(secondaryDb, "coaches", uid), {
       nombre: "",
       rol: "Coach",
       telefono: "",
-      email: "",
+      email,
       bio: "",
       academyId,
       isAdmin: false,
