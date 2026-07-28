@@ -16,12 +16,23 @@ import {
   createAcademyStudent,
   patchAcademyStudent,
   removeAcademyStudent,
+  watchGroupAssignments,
+  saveGroupAssignments,
+  applyGroupAssignmentToStudents,
 } from "./data.js";
 
 const GRUPOS = {
   "Pádel": ["Avanzado", "Intermedio", "Principiantes"],
   "Tenis": ["Competitivo", "Bola amarilla", "Bola verde", "Bola naranja", "Bola roja"],
 };
+
+const GRUPO_LABELS = Object.entries(GRUPOS).flatMap(([deporte, categorias]) =>
+  categorias.map((categoria) => `${deporte} · ${categoria}`)
+);
+
+function grupoLabel(deporte, categoria) {
+  return `${deporte} · ${categoria}`;
+}
 
 const COLORS = {
   ink: "#12211F",
@@ -77,6 +88,7 @@ export default function CountryPadelApp() {
   const [alumnosGrupo, setAlumnosGrupo] = useState(null);
   const [academyCoaches, setAcademyCoaches] = useState(null);
   const [selectedGrupoId, setSelectedGrupoId] = useState(null);
+  const [groupAssignments, setGroupAssignments] = useState(null); // { "Pádel · Avanzado": [coachUid, ...] }
 
   useEffect(() => onAuthStateChanged(auth, setAuthUser), []);
 
@@ -90,6 +102,12 @@ export default function CountryPadelApp() {
 
   const isAdmin = coach ? coach.isAdmin : true;
   const academyId = coach ? coach.academyId || authUser?.uid : null;
+
+  useEffect(() => {
+    if (!authUser || !coach || !isAdmin) return;
+    const unsub = watchGroupAssignments(academyId, setGroupAssignments, () => {});
+    return unsub;
+  }, [authUser, coach, isAdmin, academyId]);
 
   useEffect(() => {
     if (!authUser || !coach) return;
@@ -199,6 +217,7 @@ export default function CountryPadelApp() {
 
   const addAlumnoGrupo = async (data) => {
     try {
+      const label = grupoLabel(data.deporte, data.categoria);
       const id = await createAcademyStudent(academyId, {
         nombre: data.nombre,
         deporte: data.deporte,
@@ -206,7 +225,7 @@ export default function CountryPadelApp() {
         edad: data.edad || "",
         descripcion: "",
         puntos: [],
-        assignedCoachUid: data.assignedCoachUid || null,
+        assignedCoachUids: (groupAssignments && groupAssignments[label]) || [],
       });
       setSaveError(false);
       return id;
@@ -218,7 +237,30 @@ export default function CountryPadelApp() {
 
   const updateAlumnoGrupo = async (id, patch) => {
     try {
+      if (patch.deporte || patch.categoria) {
+        const actual = (alumnosGrupo || []).find((a) => a.id === id);
+        const deporte = patch.deporte || actual?.deporte;
+        const categoria = patch.categoria || actual?.categoria;
+        const label = grupoLabel(deporte, categoria);
+        patch = { ...patch, assignedCoachUids: (groupAssignments && groupAssignments[label]) || [] };
+      }
       await patchAcademyStudent(id, patch);
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
+  };
+
+  const updateGroupAssignments = async (label, coachUids) => {
+    const next = { ...(groupAssignments || {}), [label]: coachUids };
+    setGroupAssignments(next);
+    try {
+      await saveGroupAssignments(academyId, next);
+      const [deporte, categoria] = label.split(" · ");
+      const affectedIds = (alumnosGrupo || [])
+        .filter((a) => a.deporte === deporte && a.categoria === categoria)
+        .map((a) => a.id);
+      if (affectedIds.length > 0) await applyGroupAssignmentToStudents(affectedIds, coachUids);
       setSaveError(false);
     } catch (e) {
       setSaveError(true);
@@ -314,7 +356,6 @@ export default function CountryPadelApp() {
           <GruposScreen
             isAdmin={isAdmin}
             alumnos={alumnosGrupo}
-            academyCoaches={academyCoaches}
             nav={view}
             setNav={setView}
             onSelect={(id) => {
@@ -328,6 +369,7 @@ export default function CountryPadelApp() {
           <AlumnoGrupoDetalle
             alumno={(alumnosGrupo || []).find((a) => a.id === selectedGrupoId)}
             academyCoaches={academyCoaches}
+            groupAssignments={groupAssignments}
             onBack={() => setView("grupos")}
             onUpdate={(patch) => updateAlumnoGrupo(selectedGrupoId, patch)}
             onDelete={() => deleteAlumnoGrupo(selectedGrupoId)}
@@ -336,6 +378,8 @@ export default function CountryPadelApp() {
         {view === "coaches" && (
           <CoachesScreen
             coaches={academyCoaches}
+            groupAssignments={groupAssignments}
+            onUpdateAssignments={updateGroupAssignments}
             nav={view}
             setNav={setView}
             onAddCoach={addCoach}
@@ -619,13 +663,12 @@ function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno
   );
 }
 
-function GruposScreen({ isAdmin, alumnos, academyCoaches, nav, setNav, onSelect, onAdd }) {
+function GruposScreen({ isAdmin, alumnos, nav, setNav, onSelect, onAdd }) {
   const [showNuevo, setShowNuevo] = useState(false);
   const [nombre, setNombre] = useState("");
   const [deporte, setDeporte] = useState("Pádel");
   const [categoria, setCategoria] = useState(GRUPOS["Pádel"][0]);
   const [edad, setEdad] = useState("");
-  const [coachUid, setCoachUid] = useState("");
 
   if (alumnos === null) {
     return (
@@ -675,18 +718,12 @@ function GruposScreen({ isAdmin, alumnos, academyCoaches, nav, setNav, onSelect,
                   </select>
                 </div>
                 <input style={styles.input} placeholder="Edad" value={edad} onChange={(e) => setEdad(e.target.value)} />
-                <select style={{ ...styles.select, width: "100%" }} value={coachUid} onChange={(e) => setCoachUid(e.target.value)}>
-                  <option value="">Sin asignar</option>
-                  {(academyCoaches || []).map((c) => (
-                    <option key={c.uid} value={c.uid}>{c.nombre || c.email || c.uid}</option>
-                  ))}
-                </select>
                 <button
                   style={{ ...styles.primaryBtn, marginTop: 4 }}
                   disabled={!nombre.trim()}
                   onClick={async () => {
-                    const id = await onAdd({ nombre: nombre.trim(), deporte, categoria, edad, assignedCoachUid: coachUid || null });
-                    setNombre(""); setEdad(""); setCoachUid(""); setShowNuevo(false);
+                    const id = await onAdd({ nombre: nombre.trim(), deporte, categoria, edad });
+                    setNombre(""); setEdad(""); setShowNuevo(false);
                     if (id) onSelect(id);
                   }}
                 >
@@ -738,7 +775,7 @@ function GruposScreen({ isAdmin, alumnos, academyCoaches, nav, setNav, onSelect,
   );
 }
 
-function AlumnoGrupoDetalle({ alumno, academyCoaches, onBack, onUpdate, onDelete }) {
+function AlumnoGrupoDetalle({ alumno, academyCoaches, groupAssignments, onBack, onUpdate, onDelete }) {
   const [nuevoPuntoTexto, setNuevoPuntoTexto] = useState("");
   const [nuevoPuntoPrioridad, setNuevoPuntoPrioridad] = useState("Media");
 
@@ -790,17 +827,20 @@ function AlumnoGrupoDetalle({ alumno, academyCoaches, onBack, onUpdate, onDelete
           </div>
 
           <div style={styles.card}>
-            <div style={styles.cardLabel}>Coach asignado</div>
-            <select
-              style={{ ...styles.select, width: "100%" }}
-              value={alumno.assignedCoachUid || ""}
-              onChange={(e) => onUpdate({ assignedCoachUid: e.target.value || null })}
-            >
-              <option value="">Sin asignar</option>
-              {(academyCoaches || []).map((c) => (
-                <option key={c.uid} value={c.uid}>{c.nombre || c.email || c.uid}</option>
-              ))}
-            </select>
+            <div style={styles.cardLabel}>Coaches con acceso</div>
+            {(() => {
+              const label = `${alumno.deporte} · ${alumno.categoria}`;
+              const uids = (groupAssignments && groupAssignments[label]) || [];
+              const nombres = uids.map((uid) => {
+                const c = (academyCoaches || []).find((c) => c.uid === uid);
+                return c ? c.nombre || c.email || uid : uid;
+              });
+              return nombres.length > 0 ? (
+                <p style={styles.backupHint}>{nombres.join(", ")}</p>
+              ) : (
+                <p style={styles.backupHint}>Nadie todavía — asígnalo desde "Coaches → Asignación de grupos".</p>
+              );
+            })()}
           </div>
 
           <div style={styles.card}>
@@ -854,7 +894,7 @@ function AlumnoGrupoDetalle({ alumno, academyCoaches, onBack, onUpdate, onDelete
   );
 }
 
-function CoachesScreen({ coaches, nav, setNav, onAddCoach }) {
+function CoachesScreen({ coaches, groupAssignments, onUpdateAssignments, nav, setNav, onAddCoach }) {
   const [showNuevo, setShowNuevo] = useState(false);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -925,6 +965,45 @@ function CoachesScreen({ coaches, nav, setNav, onAddCoach }) {
             </div>
           ))}
         </div>
+
+        {coaches && coaches.length > 0 && (
+          <div style={{ marginTop: 22 }}>
+            <div style={styles.sesionesLabel}>Asignación de grupos</div>
+            <p style={{ ...styles.backupHint, marginTop: 6 }}>Toca los coaches que dan cada grupo. Un grupo puede tener varios, y un coach puede dar varios grupos.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+              {GRUPO_LABELS.map((label) => {
+                const asignados = (groupAssignments && groupAssignments[label]) || [];
+                return (
+                  <div key={label} style={styles.card}>
+                    <div style={styles.cardLabel}>{label}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {coaches.map((c) => {
+                        const activo = asignados.includes(c.uid);
+                        return (
+                          <button
+                            key={c.uid}
+                            style={{
+                              ...styles.pagoChip,
+                              background: activo ? COLORS.ink : "transparent",
+                              color: activo ? COLORS.lime : COLORS.muted,
+                              border: activo ? "none" : `1.5px solid ${COLORS.border}`,
+                            }}
+                            onClick={() => {
+                              const next = activo ? asignados.filter((u) => u !== c.uid) : [...asignados, c.uid];
+                              onUpdateAssignments(label, next);
+                            }}
+                          >
+                            {c.nombre || c.email || c.uid}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
