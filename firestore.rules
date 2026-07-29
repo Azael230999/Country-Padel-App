@@ -41,7 +41,8 @@ service cloud.firestore {
     }
 
     match /academyStudents/{id} {
-      allow get, list: if isAcademyAdmin(resource.data.academyId) ||
+      allow get: if true;
+      allow list: if isAcademyAdmin(resource.data.academyId) ||
         (request.auth != null && request.auth.uid in resource.data.assignedCoachUids);
       allow create: if isAcademyAdmin(request.resource.data.academyId);
       allow update, delete: if isAcademyAdmin(resource.data.academyId);

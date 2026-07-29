@@ -226,6 +226,15 @@ describe("academyStudents (clases de grupo) — asignación por grupo, muchos-a-
     );
     if (snap.size !== 3) throw new Error("esperaba 3 alumnos para coach2 tras reasignar, obtuve " + snap.size);
   });
+
+  it("cualquiera puede leer un alumno de grupo individual (link mágico de solo lectura), pero no listar la colección", async () => {
+    await seedTwoGroups();
+    const dbAnon = dbAs(null);
+    await assertSucceeds(getDoc(doc(dbAnon, "academyStudents", "kidA1")));
+    await assertFails(
+      getDocs(query(collection(dbAnon, "academyStudents"), where("academyId", "==", ADMIN_UID)))
+    );
+  });
 });
 
 describe("academyEvents (calendario) — audiencia \"todos\" o coaches específicos", () => {
