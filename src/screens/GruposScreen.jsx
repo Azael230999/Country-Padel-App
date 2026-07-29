@@ -102,7 +102,7 @@ export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSched
                     {prog.plan && (
                       <>
                         <div style={styles.cardLabel}>Plan de entrenamiento</div>
-                        <p style={{ ...styles.matchNote, marginTop: 0 }}>{prog.plan}</p>
+                        <p style={{ ...styles.matchNote, marginTop: 0, whiteSpace: "pre-wrap" }}>{prog.plan}</p>
                       </>
                     )}
                   </div>
