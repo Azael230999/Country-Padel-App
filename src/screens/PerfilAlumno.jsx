@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { styles } from "../styles.js";
 import { COLORS, fmt } from "../constants.js";
 import { EditableRow } from "../components/EditableRow.jsx";
+import { PuntoRow, NuevoPuntoForm } from "../components/Puntos.jsx";
 
 export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, readOnly = false, coachProfile = null }) {
   const restantes = alumno.paquete.finalizado ? 0 : alumno.paquete.total - alumno.paquete.usadas;
@@ -18,8 +19,6 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
   // --- Entrenamiento form state ---
   const [nuevaSesionEnfoque, setNuevaSesionEnfoque] = useState("");
   const [nuevaSesionEjercicios, setNuevaSesionEjercicios] = useState("");
-  const [nuevoPuntoTexto, setNuevoPuntoTexto] = useState("");
-  const [nuevoPuntoPrioridad, setNuevoPuntoPrioridad] = useState("Media");
   const [nuevoObjTexto, setNuevoObjTexto] = useState("");
   const [nuevoObjPlazo, setNuevoObjPlazo] = useState("Corto plazo");
   const [nuevoObjFecha, setNuevoObjFecha] = useState("");
@@ -35,6 +34,30 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
   // --- Notas form state ---
   const [nAutor, setNAutor] = useState("");
   const [nTexto, setNTexto] = useState("");
+  const [escuchando, setEscuchando] = useState(false);
+  const recognitionRef = useRef(null);
+  const SpeechRecognitionAPI = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
+
+  const toggleDictado = () => {
+    if (escuchando) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = "es-MX";
+    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.onresult = (e) => {
+      let texto = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) texto += e.results[i][0].transcript;
+      setNTexto((prev) => (prev.trim() ? `${prev.trim()} ${texto}` : texto));
+    };
+    recognition.onend = () => setEscuchando(false);
+    recognition.onerror = () => setEscuchando(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setEscuchando(true);
+  };
 
   // --- Nuevo paquete form (when finalizado) ---
   const [npNombre, setNpNombre] = useState("Paquete 8 clases");
@@ -45,6 +68,17 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
   const anioMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
   const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
   const primerDiaSemana = (new Date(hoy.getFullYear(), hoy.getMonth(), 1).getDay() + 6) % 7; // lunes=0
+
+  const mesesCorto = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const asistenciaPorMes = Array.from({ length: 6 }).map((_, i) => {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() - (5 - i), 1);
+    const prefijo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const count = alumno.asistencias.filter((iso) => iso.startsWith(prefijo)).length;
+    return { label: mesesCorto[d.getMonth()], count };
+  });
+  const maxAsistencia = Math.max(1, ...asistenciaPorMes.map((m) => m.count));
+  const partidosGanados = alumno.partidos.filter((p) => p.resu === "W").length;
+  const partidosTotal = alumno.partidos.length;
 
   const toggleDia = (dia) => {
     const iso = `${anioMes}-${String(dia).padStart(2, "0")}`;
@@ -191,32 +225,9 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
             <div style={styles.card}>
               <div style={styles.cardLabel}>Puntos por desarrollar</div>
               {alumno.puntos.map((p, i) => (
-                <div key={i} style={styles.puntoRow}>
-                  <span style={{ ...styles.prioridadDot, background: p.prioridad === "Alta" ? COLORS.red : p.prioridad === "Media" ? COLORS.amber : COLORS.green }} />
-                  <span style={{ ...styles.puntoTexto, flex: 1 }}>{p.texto}</span>
-                  <button style={styles.deleteBtn} onClick={() => removeAt("puntos", i)} aria-label="Eliminar punto">×</button>
-                </div>
+                <PuntoRow key={i} punto={p} onDelete={() => removeAt("puntos", i)} />
               ))}
-              <div style={styles.miniForm}>
-                <input style={styles.input} placeholder="Nuevo punto por desarrollar" value={nuevoPuntoTexto} onChange={(e) => setNuevoPuntoTexto(e.target.value)} />
-                <div style={{ display: "flex", gap: 6 }}>
-                  <select style={styles.select} value={nuevoPuntoPrioridad} onChange={(e) => setNuevoPuntoPrioridad(e.target.value)}>
-                    <option>Alta</option>
-                    <option>Media</option>
-                    <option>Baja</option>
-                  </select>
-                  <button
-                    style={{ ...styles.addBtn, flex: 1 }}
-                    disabled={!nuevoPuntoTexto.trim()}
-                    onClick={() => {
-                      onUpdate({ puntos: [...alumno.puntos, { texto: nuevoPuntoTexto.trim(), prioridad: nuevoPuntoPrioridad }] });
-                      setNuevoPuntoTexto("");
-                    }}
-                  >
-                    + Agregar
-                  </button>
-                </div>
-              </div>
+              <NuevoPuntoForm onAdd={(punto) => onUpdate({ puntos: [...alumno.puntos, punto] })} />
             </div>
             )}
 
@@ -414,6 +425,32 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
               </div>
             </div>
 
+            <div style={styles.card}>
+              <div style={styles.cardLabel}>Asistencia — últimos 6 meses</div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 90, marginTop: 10 }}>
+                {asistenciaPorMes.map((m, i) => (
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: 6, height: "100%" }}>
+                    <div style={{ width: "100%", height: Math.round((m.count / maxAsistencia) * 74), background: COLORS.clay, borderRadius: "5px 5px 0 0" }} />
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, color: COLORS.muted }}>{m.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {partidosTotal > 0 && (
+              <div style={styles.card}>
+                <div style={styles.cardLabel}>Partidos</div>
+                <div style={{ display: "flex", height: 10, borderRadius: 6, overflow: "hidden" }}>
+                  <div style={{ width: `${(partidosGanados / partidosTotal) * 100}%`, background: COLORS.clay }} />
+                  <div style={{ width: `${((partidosTotal - partidosGanados) / partidosTotal) * 100}%`, background: COLORS.border }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: COLORS.muted, marginTop: 6 }}>
+                  <span><b style={{ color: COLORS.ink }}>{partidosGanados}</b> ganados</span>
+                  <span><b style={{ color: COLORS.ink }}>{partidosTotal - partidosGanados}</b> perdidos</span>
+                </div>
+              </div>
+            )}
+
             {alumno.paquetesAnteriores.length > 0 && (
               <div style={styles.card}>
                 <div style={styles.cardLabel}>Paquetes anteriores</div>
@@ -509,6 +546,25 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
               <div style={styles.cardLabel}>Nueva nota</div>
               <input style={styles.input} placeholder="Tu nombre" value={nAutor} onChange={(e) => setNAutor(e.target.value)} />
               <textarea style={styles.textarea} placeholder="Observación..." value={nTexto} onChange={(e) => setNTexto(e.target.value)} />
+              {SpeechRecognitionAPI && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                  <button
+                    type="button"
+                    onClick={toggleDictado}
+                    aria-label={escuchando ? "Detener dictado" : "Dictar nota"}
+                    style={{
+                      width: 36, height: 36, borderRadius: "50%", border: "none", flexShrink: 0,
+                      background: escuchando ? COLORS.red : COLORS.clay, color: COLORS.card,
+                      fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    }}
+                  >
+                    🎙
+                  </button>
+                  <span style={{ fontSize: 11.5, color: escuchando ? COLORS.clay : COLORS.muted, fontWeight: escuchando ? 700 : 500 }}>
+                    {escuchando ? "Escuchando… toca para detener" : "Dictar la nota en vez de escribirla"}
+                  </span>
+                </div>
+              )}
               <button
                 style={styles.addBtn}
                 disabled={!nTexto.trim()}
