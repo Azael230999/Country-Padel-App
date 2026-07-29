@@ -17,6 +17,7 @@ import {
 const studentsCol = collection(db, "students");
 const academyStudentsCol = collection(db, "academyStudents");
 const coachesCol = collection(db, "coaches");
+const academyEventsCol = collection(db, "academyEvents");
 
 // ---------- Alumnos privados (sin cambios de comportamiento) ----------
 
@@ -179,4 +180,41 @@ export async function patchAcademyStudent(id, patch) {
 
 export async function removeAcademyStudent(id) {
   await deleteDoc(doc(academyStudentsCol, id));
+}
+
+// ---------- Calendario de eventos de la academia ----------
+
+export function watchAcademyEventsForAdmin(academyId, callback, onError) {
+  const q = query(academyEventsCol, where("academyId", "==", academyId));
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    onError
+  );
+}
+
+// audienceUids vive en cada evento (todos los coaches de la academia al
+// momento de crearlo/editarlo, o solo los elegidos) para que la regla de
+// seguridad de "list" no dependa de leer otro documento.
+export function watchAcademyEventsForCoach(coachUid, callback, onError) {
+  const q = query(academyEventsCol, where("audienceUids", "array-contains", coachUid));
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    onError
+  );
+}
+
+export async function createAcademyEvent(academyId, data) {
+  const id = crypto.randomUUID();
+  await setDoc(doc(academyEventsCol, id), { ...data, academyId });
+  return id;
+}
+
+export async function patchAcademyEvent(id, patch) {
+  await updateDoc(doc(academyEventsCol, id), patch);
+}
+
+export async function removeAcademyEvent(id) {
+  await deleteDoc(doc(academyEventsCol, id));
 }
