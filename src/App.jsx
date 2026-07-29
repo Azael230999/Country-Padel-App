@@ -21,6 +21,8 @@ import {
   applyGroupAssignmentToStudents,
   watchAcademyConfig,
   saveAcademyConfig,
+  watchGroupSchedule,
+  saveGroupSchedule,
 } from "./data.js";
 import { DEFAULT_COACH, DEFAULT_GRUPOS, grupoLabel } from "./constants.js";
 import { styles, fontImport } from "./styles.js";
@@ -66,6 +68,7 @@ export default function CountryPadelApp() {
   const [selectedGrupoId, setSelectedGrupoId] = useState(null);
   const [groupAssignments, setGroupAssignments] = useState(null); // { "Pádel · Avanzado": [coachUid, ...] }
   const [academyGrupos, setAcademyGrupos] = useState(null); // { "Pádel": ["Avanzado", ...] }
+  const [groupSchedule, setGroupSchedule] = useState(null); // { "Pádel · Avanzado": { horario, plan } }
 
   useEffect(() => onAuthStateChanged(auth, setAuthUser), []);
 
@@ -102,6 +105,12 @@ export default function CountryPadelApp() {
     );
     return unsub;
   }, [authUser, coach, isAdmin, academyId]);
+
+  useEffect(() => {
+    if (!authUser || !coach) return;
+    const unsub = watchGroupSchedule(academyId, setGroupSchedule, () => {});
+    return unsub;
+  }, [authUser, coach, academyId]);
 
   useEffect(() => {
     if (!authUser || !coach) return;
@@ -261,6 +270,17 @@ export default function CountryPadelApp() {
     }
   };
 
+  const updateGroupSchedule = async (label, patch) => {
+    const next = { ...(groupSchedule || {}), [label]: { ...(groupSchedule?.[label] || {}), ...patch } };
+    setGroupSchedule(next);
+    try {
+      await saveGroupSchedule(academyId, next);
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
+  };
+
   const deleteAlumnoGrupo = async (id) => {
     try {
       await removeAcademyStudent(id);
@@ -361,6 +381,8 @@ export default function CountryPadelApp() {
             isAdmin={isAdmin}
             alumnos={alumnosGrupo}
             grupos={academyGrupos || DEFAULT_GRUPOS}
+            schedule={groupSchedule || {}}
+            onUpdateSchedule={updateGroupSchedule}
             nav={view}
             setNav={setView}
             onSelect={(id) => {

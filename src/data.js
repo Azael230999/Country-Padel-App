@@ -129,6 +129,20 @@ export async function saveGroupAssignments(academyId, asignaciones) {
   await setDoc(doc(db, "groupAssignments", academyId), { asignaciones }, { merge: true });
 }
 
+// ---------- Horario y plan de entrenamiento por grupo (editable por el admin) ----------
+
+export function watchGroupSchedule(academyId, callback, onError) {
+  return onSnapshot(
+    doc(db, "groupSchedule", academyId),
+    (snap) => callback(snap.exists() ? snap.data().programas || {} : {}),
+    onError
+  );
+}
+
+export async function saveGroupSchedule(academyId, programas) {
+  await setDoc(doc(db, "groupSchedule", academyId), { programas }, { merge: true });
+}
+
 // ---------- Configuración de categorías de grupo (editable por el admin) ----------
 
 // callback recibe null si la academia todavía no tiene config propia (para
