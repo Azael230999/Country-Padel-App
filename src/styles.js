@@ -70,6 +70,8 @@ export const styles = {
   puntoRow: { display: "flex", alignItems: "flex-start", gap: 9, marginBottom: 8 },
   prioridadDot: { width: 8, height: 8, borderRadius: "50%", marginTop: 5, flexShrink: 0 },
   puntoTexto: { fontSize: 13, color: COLORS.ink, lineHeight: 1.4 },
+  puntoLabel: { fontSize: 13, fontWeight: 700, color: COLORS.ink },
+  puntoDetalle: { fontSize: 12, color: "#6B5A47", marginTop: 2, lineHeight: 1.4 },
   sesionesLabel: { fontSize: 10.5, letterSpacing: 1, color: COLORS.muted, fontWeight: 700, marginTop: 4 },
   sesionCard: { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 14, marginBottom: 4 },
   sesionEnfoque: { fontSize: 14, fontWeight: 700, color: COLORS.ink, marginTop: 6 },

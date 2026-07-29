@@ -1,12 +1,8 @@
-import { useState } from "react";
 import { styles } from "../styles.js";
-import { COLORS } from "../constants.js";
 import { EditableRow } from "../components/EditableRow.jsx";
+import { PuntoRow, NuevoPuntoForm } from "../components/Puntos.jsx";
 
 export function AlumnoGrupoDetalle({ alumno, academyCoaches, groupAssignments, grupos, onBack, onUpdate, onDelete }) {
-  const [nuevoPuntoTexto, setNuevoPuntoTexto] = useState("");
-  const [nuevoPuntoPrioridad, setNuevoPuntoPrioridad] = useState("Media");
-
   if (!alumno) {
     return (
       <div style={styles.content} className="content-safe">
@@ -74,38 +70,9 @@ export function AlumnoGrupoDetalle({ alumno, academyCoaches, groupAssignments, g
           <div style={styles.card}>
             <div style={styles.cardLabel}>Lo que necesita trabajar</div>
             {(alumno.puntos || []).map((p, i) => (
-              <div key={i} style={styles.puntoRow}>
-                <span style={{ ...styles.prioridadDot, background: p.prioridad === "Alta" ? COLORS.red : p.prioridad === "Media" ? COLORS.amber : COLORS.green }} />
-                <span style={{ ...styles.puntoTexto, flex: 1 }}>{p.texto}</span>
-                <button
-                  style={styles.deleteBtn}
-                  onClick={() => onUpdate({ puntos: alumno.puntos.filter((_, j) => j !== i) })}
-                  aria-label="Eliminar punto"
-                >
-                  ×
-                </button>
-              </div>
+              <PuntoRow key={i} punto={p} onDelete={() => onUpdate({ puntos: alumno.puntos.filter((_, j) => j !== i) })} />
             ))}
-            <div style={styles.miniForm}>
-              <input style={styles.input} placeholder="Nuevo punto por trabajar" value={nuevoPuntoTexto} onChange={(e) => setNuevoPuntoTexto(e.target.value)} />
-              <div style={{ display: "flex", gap: 6 }}>
-                <select style={styles.select} value={nuevoPuntoPrioridad} onChange={(e) => setNuevoPuntoPrioridad(e.target.value)}>
-                  <option>Alta</option>
-                  <option>Media</option>
-                  <option>Baja</option>
-                </select>
-                <button
-                  style={{ ...styles.addBtn, flex: 1 }}
-                  disabled={!nuevoPuntoTexto.trim()}
-                  onClick={() => {
-                    onUpdate({ puntos: [...(alumno.puntos || []), { texto: nuevoPuntoTexto.trim(), prioridad: nuevoPuntoPrioridad }] });
-                    setNuevoPuntoTexto("");
-                  }}
-                >
-                  + Agregar
-                </button>
-              </div>
-            </div>
+            <NuevoPuntoForm onAdd={(punto) => onUpdate({ puntos: [...(alumno.puntos || []), punto] })} />
           </div>
 
           <button

@@ -34,6 +34,9 @@ export const COLORS = {
 
 export const DEFAULT_COACH = { nombre: "", rol: "Coach de Padel", telefono: "", email: "", bio: "", academyId: "", isAdmin: true };
 
+// Tiros para elegir al agregar un punto por desarrollar (tenis + pádel).
+export const TIROS = ["Saque", "Derecha", "Revés", "Volea", "Bandeja", "Víbora", "Remate", "Slice", "Globo", "Salida de pared", "Definición", "Movimiento"];
+
 export function fmt(dateStr) {
   if (!dateStr) return "";
   const [y, m, d] = dateStr.split("-");

@@ -39,6 +39,7 @@ import { CoachesScreen } from "./screens/CoachesScreen.jsx";
 import { PerfilAlumno } from "./screens/PerfilAlumno.jsx";
 import { CalendarioScreen } from "./screens/CalendarioScreen.jsx";
 import { EventoDetalle } from "./screens/EventoDetalle.jsx";
+import { HoyScreen, PagosPendientesScreen } from "./screens/HoyScreen.jsx";
 
 // Datos que vivían solo en este dispositivo antes de moverse a la nube.
 // Se usan una sola vez, para ofrecer migrarlos al primer inicio de sesión.
@@ -63,7 +64,7 @@ export default function CountryPadelApp() {
   const [authUser, setAuthUser] = useState(undefined); // undefined = verificando, null = sin sesión
   const [students, setStudents] = useState(null);
   const [coach, setCoach] = useState(null);
-  const [view, setView] = useState("directorio");
+  const [view, setView] = useState("hoy");
   const [selectedId, setSelectedId] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [tab, setTab] = useState("perfil");
@@ -389,6 +390,27 @@ export default function CountryPadelApp() {
       <div style={styles.phone} className="phone-shell">
         {saveError && (
           <div style={styles.saveErrorBanner}>No se pudo guardar el último cambio. Sigue intentando o revisa tu conexión.</div>
+        )}
+        {view === "hoy" && (
+          <HoyScreen
+            isAdmin={isAdmin}
+            students={students}
+            eventos={academyEvents}
+            nav={view}
+            setNav={setView}
+            onVerPagos={() => setView("pagosPendientes")}
+          />
+        )}
+        {view === "pagosPendientes" && (
+          <PagosPendientesScreen
+            students={students}
+            onBack={() => setView("hoy")}
+            onSelectAlumno={(id) => {
+              setSelectedId(id);
+              setTab("perfil");
+              setView("perfil");
+            }}
+          />
         )}
         {view === "directorio" && (
           <Directorio

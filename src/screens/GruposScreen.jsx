@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { styles } from "../styles.js";
-import { COLORS } from "../constants.js";
 import { NavSwitcher } from "../components/NavSwitcher.jsx";
 import { EditableRow } from "../components/EditableRow.jsx";
+import { PuntoRow } from "../components/Puntos.jsx";
 
 export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSchedule, nav, setNav, onSelect, onAdd }) {
   const [showNuevo, setShowNuevo] = useState(false);
@@ -124,12 +124,7 @@ export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSched
                       {a.descripcion && <p style={styles.matchNote}>{a.descripcion}</p>}
                       {(a.puntos || []).length > 0 && (
                         <div style={{ marginTop: 6 }}>
-                          {a.puntos.map((p, i) => (
-                            <div key={i} style={styles.puntoRow}>
-                              <span style={{ ...styles.prioridadDot, background: p.prioridad === "Alta" ? COLORS.red : p.prioridad === "Media" ? COLORS.amber : COLORS.green }} />
-                              <span style={styles.puntoTexto}>{p.texto}</span>
-                            </div>
-                          ))}
+                          {a.puntos.map((p, i) => <PuntoRow key={i} punto={p} />)}
                         </div>
                       )}
                     </div>
