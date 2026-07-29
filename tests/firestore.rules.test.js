@@ -259,3 +259,34 @@ describe("groupAssignments (mapa de asignación por grupo)", () => {
     );
   });
 });
+
+describe("groupSchedule (horario y plan de entrenamiento por grupo)", () => {
+  it("el admin puede leer y escribir; cualquier coach de la academia puede leer pero no escribir", async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, "coaches", COACH1_UID), { nombre: "Coach Uno", academyId: ADMIN_UID });
+    });
+
+    const dbAdmin = dbAs(ADMIN_UID);
+    await assertSucceeds(
+      setDoc(doc(dbAdmin, "groupSchedule", ADMIN_UID), {
+        programas: { "Pádel · Avanzado": { horario: "Martes y jueves 5-6pm", plan: "Semana 1: saque" } },
+      })
+    );
+    await assertSucceeds(getDoc(doc(dbAdmin, "groupSchedule", ADMIN_UID)));
+
+    const db1 = dbAs(COACH1_UID);
+    await assertSucceeds(getDoc(doc(db1, "groupSchedule", ADMIN_UID)));
+    await assertFails(
+      setDoc(doc(db1, "groupSchedule", ADMIN_UID), { programas: { hacked: { horario: "x" } } })
+    );
+  });
+
+  it("un coach que no pertenece a la academia no puede leer el horario", async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, "coaches", COACH2_UID), { nombre: "Coach externo", academyId: OTHER_ACADEMY_ADMIN_UID });
+      await setDoc(doc(db, "groupSchedule", ADMIN_UID), { programas: { "Pádel · Avanzado": { horario: "x" } } });
+    });
+    const db2 = dbAs(COACH2_UID);
+    await assertFails(getDoc(doc(db2, "groupSchedule", ADMIN_UID)));
+  });
+});

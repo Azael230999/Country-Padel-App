@@ -2,8 +2,9 @@ import { useState } from "react";
 import { styles } from "../styles.js";
 import { COLORS } from "../constants.js";
 import { NavSwitcher } from "../components/NavSwitcher.jsx";
+import { EditableRow } from "../components/EditableRow.jsx";
 
-export function GruposScreen({ isAdmin, alumnos, grupos, nav, setNav, onSelect, onAdd }) {
+export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSchedule, nav, setNav, onSelect, onAdd }) {
   const [showNuevo, setShowNuevo] = useState(false);
   const [nombre, setNombre] = useState("");
   const primerDeporte = Object.keys(grupos)[0] || "";
@@ -77,9 +78,36 @@ export function GruposScreen({ isAdmin, alumnos, grupos, nav, setNav, onSelect, 
 
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 18 }}>
           {alumnos.length === 0 && <div style={styles.empty}>{isAdmin ? "Aún no hay alumnos de grupo." : "Todavía no tienes grupos asignados."}</div>}
-          {grupoKeys.map((key) => (
+          {grupoKeys.map((key) => {
+            const prog = schedule?.[key] || {};
+            return (
             <div key={key}>
               <div style={styles.sesionesLabel}>{key}</div>
+              {isAdmin ? (
+                <div style={{ ...styles.card, marginTop: 8 }}>
+                  <div style={styles.cardLabel}>Horario</div>
+                  <EditableRow k="" v={prog.horario || "Tocar para agregar el horario"} onSave={(v) => onUpdateSchedule(key, { horario: v })} />
+                  <div style={{ ...styles.cardLabel, marginTop: 8 }}>Plan de entrenamiento</div>
+                  <EditableRow k="" v={prog.plan || "Tocar para agregar qué deben trabajar"} onSave={(v) => onUpdateSchedule(key, { plan: v })} multiline />
+                </div>
+              ) : (
+                (prog.horario || prog.plan) && (
+                  <div style={{ ...styles.card, marginTop: 8 }}>
+                    {prog.horario && (
+                      <>
+                        <div style={styles.cardLabel}>Horario</div>
+                        <p style={{ ...styles.matchNote, marginTop: 0, marginBottom: prog.plan ? 10 : 0 }}>{prog.horario}</p>
+                      </>
+                    )}
+                    {prog.plan && (
+                      <>
+                        <div style={styles.cardLabel}>Plan de entrenamiento</div>
+                        <p style={{ ...styles.matchNote, marginTop: 0, whiteSpace: "pre-wrap" }}>{prog.plan}</p>
+                      </>
+                    )}
+                  </div>
+                )
+              )}
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
                 {porGrupo[key].map((a) =>
                   isAdmin ? (
@@ -109,7 +137,8 @@ export function GruposScreen({ isAdmin, alumnos, grupos, nav, setNav, onSelect, 
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </>

@@ -24,7 +24,7 @@ export function EditableRow({ k, v, onSave, multiline }) {
   return (
     <div style={styles.infoRow} onClick={() => setEditando(true)}>
       {k && <span style={styles.infoK}>{k}</span>}
-      <span style={{ ...styles.infoV, cursor: "pointer", flex: k ? undefined : 1 }}>{v || "Tocar para agregar"}</span>
+      <span style={{ ...styles.infoV, cursor: "pointer", flex: k ? undefined : 1, whiteSpace: multiline ? "pre-wrap" : undefined }}>{v || "Tocar para agregar"}</span>
     </div>
   );
 }
