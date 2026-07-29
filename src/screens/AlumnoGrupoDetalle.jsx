@@ -1,8 +1,18 @@
+import { useState } from "react";
 import { styles } from "../styles.js";
 import { EditableRow } from "../components/EditableRow.jsx";
 import { PuntoRow, NuevoPuntoForm } from "../components/Puntos.jsx";
 
 export function AlumnoGrupoDetalle({ alumno, academyCoaches, groupAssignments, grupos, onBack, onUpdate, onDelete }) {
+  const [copiado, setCopiado] = useState(false);
+  const copiarLink = () => {
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}?alumnoGrupo=${alumno.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    });
+  };
+
   if (!alumno) {
     return (
       <div style={styles.content} className="content-safe">
@@ -73,6 +83,12 @@ export function AlumnoGrupoDetalle({ alumno, academyCoaches, groupAssignments, g
               <PuntoRow key={i} punto={p} onDelete={() => onUpdate({ puntos: alumno.puntos.filter((_, j) => j !== i) })} />
             ))}
             <NuevoPuntoForm onAdd={(punto) => onUpdate({ puntos: [...(alumno.puntos || []), punto] })} />
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.cardLabel}>Vista para el alumno</div>
+            <p style={styles.backupHint}>Comparte este link para que {alumno.nombre.split(" ")[0]} vea su horario, plan de entrenamiento y lo que necesita trabajar — sin poder editar nada.</p>
+            <button style={styles.addBtn} onClick={copiarLink}>{copiado ? "¡Copiado!" : "Copiar link para el alumno"}</button>
           </div>
 
           <button

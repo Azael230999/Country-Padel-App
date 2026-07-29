@@ -23,6 +23,7 @@ import {
   saveAcademyConfig,
   watchGroupSchedule,
   saveGroupSchedule,
+  applyGroupScheduleToStudents,
   watchAcademyEventsForAdmin,
   watchAcademyEventsForCoach,
   createAcademyEvent,
@@ -240,6 +241,7 @@ export default function CountryPadelApp() {
   const addAlumnoGrupo = async (data) => {
     try {
       const label = grupoLabel(data.deporte, data.categoria);
+      const prog = groupSchedule?.[label] || {};
       const id = await createAcademyStudent(academyId, {
         nombre: data.nombre,
         deporte: data.deporte,
@@ -248,6 +250,8 @@ export default function CountryPadelApp() {
         descripcion: "",
         puntos: [],
         assignedCoachUids: (groupAssignments && groupAssignments[label]) || [],
+        horario: prog.horario || "",
+        plan: prog.plan || "",
       });
       setSaveError(false);
       return id;
@@ -264,7 +268,13 @@ export default function CountryPadelApp() {
         const deporte = patch.deporte || actual?.deporte;
         const categoria = patch.categoria || actual?.categoria;
         const label = grupoLabel(deporte, categoria);
-        patch = { ...patch, assignedCoachUids: (groupAssignments && groupAssignments[label]) || [] };
+        const prog = groupSchedule?.[label] || {};
+        patch = {
+          ...patch,
+          assignedCoachUids: (groupAssignments && groupAssignments[label]) || [],
+          horario: prog.horario || "",
+          plan: prog.plan || "",
+        };
       }
       await patchAcademyStudent(id, patch);
       setSaveError(false);
@@ -294,6 +304,14 @@ export default function CountryPadelApp() {
     setGroupSchedule(next);
     try {
       await saveGroupSchedule(academyId, next);
+      const [deporte, categoria] = label.split(" · ");
+      const affectedIds = (alumnosGrupo || [])
+        .filter((a) => a.deporte === deporte && a.categoria === categoria)
+        .map((a) => a.id);
+      if (affectedIds.length > 0) {
+        const prog = next[label];
+        await applyGroupScheduleToStudents(affectedIds, { horario: prog.horario || "", plan: prog.plan || "" });
+      }
       setSaveError(false);
     } catch (e) {
       setSaveError(true);

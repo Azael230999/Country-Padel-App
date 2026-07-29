@@ -52,6 +52,14 @@ export function watchStudentPublic(id, callback, onError) {
   );
 }
 
+export function watchAcademyStudentPublic(id, callback, onError) {
+  return onSnapshot(
+    doc(academyStudentsCol, id),
+    (snap) => callback(snap.exists() ? { id: snap.id, ...snap.data() } : null),
+    onError
+  );
+}
+
 // ---------- Perfil del coach / academia ----------
 
 export async function getCoachProfile(uid) {
@@ -142,6 +150,14 @@ export function watchGroupSchedule(academyId, callback, onError) {
 
 export async function saveGroupSchedule(academyId, programas) {
   await setDoc(doc(db, "groupSchedule", academyId), { programas }, { merge: true });
+}
+
+// Copia horario/plan en cada alumno de ese grupo, para poder mostrárselos en
+// su link público sin que su regla de seguridad necesite leer otro documento.
+export async function applyGroupScheduleToStudents(studentIds, patch) {
+  const batch = writeBatch(db);
+  studentIds.forEach((id) => batch.update(doc(academyStudentsCol, id), patch));
+  await batch.commit();
 }
 
 // ---------- Configuración de categorías de grupo (editable por el admin) ----------
