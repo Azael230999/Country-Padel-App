@@ -228,6 +228,71 @@ describe("academyStudents (clases de grupo) — asignación por grupo, muchos-a-
   });
 });
 
+describe("academyEvents (calendario) — audiencia \"todos\" o coaches específicos", () => {
+  async function seedEvents() {
+    await seed(async (db) => {
+      await setDoc(doc(db, "academyEvents", "evTodos"), {
+        academyId: ADMIN_UID,
+        titulo: "Junta mensual",
+        fecha: "2026-08-07",
+        audienceUids: [COACH1_UID, COACH2_UID],
+      });
+      await setDoc(doc(db, "academyEvents", "evSolo1"), {
+        academyId: ADMIN_UID,
+        titulo: "Torneo bola verde",
+        fecha: "2026-08-12",
+        audienceUids: [COACH1_UID],
+      });
+    });
+  }
+
+  it("el admin puede listar todos los eventos de su academia", async () => {
+    await seedEvents();
+    const dbAdmin = dbAs(ADMIN_UID);
+    const snap = await assertSucceeds(
+      getDocs(query(collection(dbAdmin, "academyEvents"), where("academyId", "==", ADMIN_UID)))
+    );
+    if (snap.size !== 2) throw new Error("esperaba 2 eventos, obtuve " + snap.size);
+  });
+
+  it("coach1 (en la audiencia de ambos) ve los 2 eventos", async () => {
+    await seedEvents();
+    const db1 = dbAs(COACH1_UID);
+    const snap = await assertSucceeds(
+      getDocs(query(collection(db1, "academyEvents"), where("audienceUids", "array-contains", COACH1_UID)))
+    );
+    if (snap.size !== 2) throw new Error("esperaba 2 eventos para coach1, obtuve " + snap.size);
+  });
+
+  it("coach2 (solo en la audiencia de uno) ve únicamente ese evento", async () => {
+    await seedEvents();
+    const db2 = dbAs(COACH2_UID);
+    const snap = await assertSucceeds(
+      getDocs(query(collection(db2, "academyEvents"), where("audienceUids", "array-contains", COACH2_UID)))
+    );
+    if (snap.size !== 1) throw new Error("esperaba 1 evento para coach2, obtuve " + snap.size);
+  });
+
+  it("un coach no puede crear, editar ni borrar eventos, solo el admin", async () => {
+    await seedEvents();
+    const db2 = dbAs(COACH2_UID);
+    await assertFails(updateDoc(doc(db2, "academyEvents", "evTodos"), { titulo: "Hackeado" }));
+    await assertFails(deleteDoc(doc(db2, "academyEvents", "evTodos")));
+    await assertFails(
+      setDoc(doc(db2, "academyEvents", "hack1"), {
+        academyId: ADMIN_UID,
+        titulo: "Evento falso",
+        fecha: "2026-08-01",
+        audienceUids: [COACH2_UID],
+      })
+    );
+
+    const dbAdmin = dbAs(ADMIN_UID);
+    await assertSucceeds(updateDoc(doc(dbAdmin, "academyEvents", "evTodos"), { titulo: "Junta mensual (actualizada)" }));
+    await assertSucceeds(deleteDoc(doc(dbAdmin, "academyEvents", "evSolo1")));
+  });
+});
+
 describe("academyConfig (categorías de grupo editables)", () => {
   it("solo el admin puede leer y escribir la configuración de categorías", async () => {
     const dbAdmin = dbAs(ADMIN_UID);

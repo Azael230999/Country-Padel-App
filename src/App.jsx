@@ -23,6 +23,11 @@ import {
   saveAcademyConfig,
   watchGroupSchedule,
   saveGroupSchedule,
+  watchAcademyEventsForAdmin,
+  watchAcademyEventsForCoach,
+  createAcademyEvent,
+  patchAcademyEvent,
+  removeAcademyEvent,
 } from "./data.js";
 import { DEFAULT_COACH, DEFAULT_GRUPOS, grupoLabel } from "./constants.js";
 import { styles, fontImport } from "./styles.js";
@@ -32,6 +37,8 @@ import { GruposScreen } from "./screens/GruposScreen.jsx";
 import { AlumnoGrupoDetalle } from "./screens/AlumnoGrupoDetalle.jsx";
 import { CoachesScreen } from "./screens/CoachesScreen.jsx";
 import { PerfilAlumno } from "./screens/PerfilAlumno.jsx";
+import { CalendarioScreen } from "./screens/CalendarioScreen.jsx";
+import { EventoDetalle } from "./screens/EventoDetalle.jsx";
 
 // Datos que vivían solo en este dispositivo antes de moverse a la nube.
 // Se usan una sola vez, para ofrecer migrarlos al primer inicio de sesión.
@@ -69,6 +76,8 @@ export default function CountryPadelApp() {
   const [groupAssignments, setGroupAssignments] = useState(null); // { "Pádel · Avanzado": [coachUid, ...] }
   const [academyGrupos, setAcademyGrupos] = useState(null); // { "Pádel": ["Avanzado", ...] }
   const [groupSchedule, setGroupSchedule] = useState(null); // { "Pádel · Avanzado": { horario, plan } }
+  const [academyEvents, setAcademyEvents] = useState(null);
+  const [selectedEventoId, setSelectedEventoId] = useState(null);
 
   useEffect(() => onAuthStateChanged(auth, setAuthUser), []);
 
@@ -111,6 +120,15 @@ export default function CountryPadelApp() {
     const unsub = watchGroupSchedule(academyId, setGroupSchedule, () => {});
     return unsub;
   }, [authUser, coach, academyId]);
+
+  useEffect(() => {
+    if (!authUser || !coach) return;
+    setAcademyEvents(null);
+    const unsub = isAdmin
+      ? watchAcademyEventsForAdmin(academyId, setAcademyEvents, () => setSaveError(true))
+      : watchAcademyEventsForCoach(authUser.uid, setAcademyEvents, () => setSaveError(true));
+    return unsub;
+  }, [authUser, coach, isAdmin, academyId]);
 
   useEffect(() => {
     if (!authUser || !coach) return;
@@ -292,6 +310,37 @@ export default function CountryPadelApp() {
     setView("grupos");
   };
 
+  const addEvento = async (data) => {
+    try {
+      const id = await createAcademyEvent(academyId, data);
+      setSaveError(false);
+      return id;
+    } catch (e) {
+      setSaveError(true);
+      return null;
+    }
+  };
+
+  const updateEvento = async (id, patch) => {
+    try {
+      await patchAcademyEvent(id, patch);
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
+  };
+
+  const deleteEvento = async (id) => {
+    try {
+      await removeAcademyEvent(id);
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
+    setSelectedEventoId(null);
+    setView("calendario");
+  };
+
   const addCoach = async (email, password) => {
     await createCoachAccount(academyId, email, password);
   };
@@ -414,6 +463,29 @@ export default function CountryPadelApp() {
             nav={view}
             setNav={setView}
             onAddCoach={addCoach}
+          />
+        )}
+        {view === "calendario" && (
+          <CalendarioScreen
+            isAdmin={isAdmin}
+            eventos={academyEvents}
+            coaches={academyCoaches}
+            nav={view}
+            setNav={setView}
+            onSelect={(id) => {
+              setSelectedEventoId(id);
+              setView("eventoDetalle");
+            }}
+            onAdd={addEvento}
+          />
+        )}
+        {view === "eventoDetalle" && (
+          <EventoDetalle
+            evento={(academyEvents || []).find((e) => e.id === selectedEventoId)}
+            coaches={academyCoaches}
+            onBack={() => setView("calendario")}
+            onUpdate={(patch) => updateEvento(selectedEventoId, patch)}
+            onDelete={() => deleteEvento(selectedEventoId)}
           />
         )}
       </div>
