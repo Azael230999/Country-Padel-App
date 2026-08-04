@@ -1,11 +1,22 @@
 import { useState } from "react";
+import { Clock, ClipboardList, ChevronDown } from "lucide-react";
 import { styles } from "../styles.js";
+import { COLORS } from "../constants.js";
 import { NavSwitcher } from "../components/NavSwitcher.jsx";
 import { EditableRow } from "../components/EditableRow.jsx";
 import { PuntoRow } from "../components/Puntos.jsx";
 
+function IconBadge({ Icon }) {
+  return (
+    <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(214,178,62,0.16)", color: COLORS.clay, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <Icon size={15} strokeWidth={2.25} />
+    </div>
+  );
+}
+
 export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSchedule, nav, setNav, onSelect, onAdd }) {
   const [showNuevo, setShowNuevo] = useState(false);
+  const [abiertos, setAbiertos] = useState({});
   const [nombre, setNombre] = useState("");
   const primerDeporte = Object.keys(grupos)[0] || "";
   const [deporte, setDeporte] = useState(primerDeporte);
@@ -80,33 +91,62 @@ export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSched
           {alumnos.length === 0 && <div style={styles.empty}>{isAdmin ? "Aún no hay alumnos de grupo." : "Todavía no tienes grupos asignados."}</div>}
           {grupoKeys.map((key) => {
             const prog = schedule?.[key] || {};
+            const tieneInfo = Boolean(prog.horario || prog.plan);
+            const abierto = Boolean(abiertos[key]);
+            const clickable = isAdmin || tieneInfo;
             return (
             <div key={key}>
-              <div style={styles.sesionesLabel}>{key}</div>
-              {isAdmin ? (
-                <div style={{ ...styles.card, marginTop: 8 }}>
-                  <div style={styles.cardLabel}>Horario</div>
-                  <EditableRow k="" v={prog.horario || "Tocar para agregar el horario"} onSave={(v) => onUpdateSchedule(key, { horario: v })} />
-                  <div style={{ ...styles.cardLabel, marginTop: 8 }}>Plan de entrenamiento</div>
-                  <EditableRow k="" v={prog.plan || "Tocar para agregar qué deben trabajar"} onSave={(v) => onUpdateSchedule(key, { plan: v })} multiline />
-                </div>
+              {clickable ? (
+                <button
+                  onClick={() => setAbiertos((prev) => ({ ...prev, [key]: !prev[key] }))}
+                  style={{ display: "flex", alignItems: "center", width: "100%", background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "'Karla', sans-serif", textAlign: "left" }}
+                >
+                  <span style={{ ...styles.sesionesLabel, marginTop: 0, flex: 1 }}>{key}</span>
+                  {tieneInfo && <span style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.ball, marginRight: 8 }} />}
+                  <ChevronDown size={16} strokeWidth={2.5} color={COLORS.muted} style={{ transform: abierto ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }} />
+                </button>
               ) : (
-                (prog.horario || prog.plan) && (
-                  <div style={{ ...styles.card, marginTop: 8 }}>
-                    {prog.horario && (
-                      <>
+                <div style={styles.sesionesLabel}>{key}</div>
+              )}
+              {abierto && isAdmin && (
+                <div style={{ ...styles.card, marginTop: 8, display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <IconBadge Icon={Clock} />
+                    <div style={{ flex: 1 }}>
+                      <div style={styles.cardLabel}>Horario</div>
+                      <EditableRow k="" v={prog.horario} onSave={(v) => onUpdateSchedule(key, { horario: v })} />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <IconBadge Icon={ClipboardList} />
+                    <div style={{ flex: 1 }}>
+                      <div style={styles.cardLabel}>Plan de entrenamiento</div>
+                      <EditableRow k="" v={prog.plan} onSave={(v) => onUpdateSchedule(key, { plan: v })} multiline />
+                    </div>
+                  </div>
+                </div>
+              )}
+              {abierto && !isAdmin && tieneInfo && (
+                <div style={{ ...styles.card, marginTop: 8, display: "flex", flexDirection: "column", gap: 12 }}>
+                  {prog.horario && (
+                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                      <IconBadge Icon={Clock} />
+                      <div style={{ flex: 1 }}>
                         <div style={styles.cardLabel}>Horario</div>
-                        <p style={{ ...styles.matchNote, marginTop: 0, marginBottom: prog.plan ? 10 : 0 }}>{prog.horario}</p>
-                      </>
-                    )}
-                    {prog.plan && (
-                      <>
+                        <p style={{ ...styles.matchNote, marginTop: 0 }}>{prog.horario}</p>
+                      </div>
+                    </div>
+                  )}
+                  {prog.plan && (
+                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                      <IconBadge Icon={ClipboardList} />
+                      <div style={{ flex: 1 }}>
                         <div style={styles.cardLabel}>Plan de entrenamiento</div>
                         <p style={{ ...styles.matchNote, marginTop: 0, whiteSpace: "pre-wrap" }}>{prog.plan}</p>
-                      </>
-                    )}
-                  </div>
-                )
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
                 {porGrupo[key].map((a) =>
