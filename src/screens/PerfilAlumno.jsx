@@ -4,6 +4,12 @@ import { COLORS, fmt } from "../constants.js";
 import { EditableRow } from "../components/EditableRow.jsx";
 import { PuntoRow, NuevoPuntoForm } from "../components/Puntos.jsx";
 
+function formatNivel(nivel) {
+  const num = Number(nivel);
+  if (nivel === "" || nivel == null || Number.isNaN(num)) return nivel;
+  return Number.isInteger(num) ? String(num) : String(Math.round(num * 10) / 10);
+}
+
 export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, readOnly = false, coachProfile = null }) {
   const restantes = alumno.paquete.finalizado ? 0 : alumno.paquete.total - alumno.paquete.usadas;
   const modalidad = alumno.modalidad || "paquete";
@@ -124,9 +130,12 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
           <div style={styles.avatarBig}>{alumno.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>
           <div style={{ flex: 1 }}>
             <div style={styles.playerName}>{alumno.nombre}</div>
-            <div style={styles.playerMeta}>{alumno.lado} · {alumno.mano} · {alumno.grupo}</div>
+            {(() => {
+              const metaParts = [alumno.lado, alumno.mano, alumno.grupo].filter((v) => v && v !== "—");
+              return metaParts.length > 0 && <div style={styles.playerMeta}>{metaParts.join(" · ")}</div>;
+            })()}
           </div>
-          <div style={styles.levelBadge}>{alumno.nivel}</div>
+          <div style={styles.levelBadge}>{formatNivel(alumno.nivel)}</div>
         </div>
         {readOnly && coachProfile?.nombre && (
           <div style={styles.coachLine}>

@@ -93,7 +93,7 @@ export function CalendarioScreen({ isAdmin, eventos, coaches, nav, setNav, onSel
       <div style={styles.header} className="header-safe">
         <div style={styles.brand}>COUNTRY PADEL</div>
         <div style={styles.titulo}>Calendario</div>
-        <div style={{ marginBottom: 4 }}>
+        <div style={{ marginTop: 12, marginBottom: 4 }}>
           <NavSwitcher nav={nav} setNav={setNav} isAdmin={isAdmin} />
         </div>
       </div>
