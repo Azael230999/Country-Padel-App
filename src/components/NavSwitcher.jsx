@@ -9,16 +9,26 @@ export function NavSwitcher({ nav, setNav, isAdmin }) {
   const activeMap = { grupoDetalle: "grupos", eventoDetalle: "calendario", pagosPendientes: "hoy" };
   const activeNav = activeMap[nav] || nav;
   return (
-    <div style={{ ...styles.segmented, overflowX: "auto" }}>
+    <div style={{ ...styles.segmented }}>
       {items.map(([key, label]) => {
         const Icon = ICONS[key];
         return (
           <button
             key={key}
-            style={{ ...styles.segmentBtn, whiteSpace: "nowrap", ...(activeNav === key ? styles.segmentBtnActive : {}) }}
+            style={{
+              ...styles.segmentBtn,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 3,
+              padding: "7px 0 6px",
+              fontSize: 10,
+              whiteSpace: "nowrap",
+              ...(activeNav === key ? styles.segmentBtnActive : {}),
+            }}
             onClick={() => setNav(key)}
           >
-            <Icon size={13} strokeWidth={2.25} style={{ verticalAlign: -2.5, marginRight: 3 }} />
+            <Icon size={15} strokeWidth={2.25} />
             {label}
           </button>
         );
