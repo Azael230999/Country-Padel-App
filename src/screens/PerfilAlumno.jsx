@@ -1,8 +1,11 @@
 import { useState, useRef } from "react";
+import { User, Target, CalendarCheck, Trophy, StickyNote } from "lucide-react";
 import { styles } from "../styles.js";
 import { COLORS, fmt } from "../constants.js";
 import { EditableRow } from "../components/EditableRow.jsx";
 import { PuntoRow, NuevoPuntoForm } from "../components/Puntos.jsx";
+
+const TAB_ICONS = { perfil: User, entrenamiento: Target, asistencia: CalendarCheck, partidos: Trophy, notas: StickyNote };
 
 function formatNivel(nivel) {
   const num = Number(nivel);
@@ -146,16 +149,20 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
       </div>
 
       <div style={styles.tabs}>
-        {tabsList.map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            style={{ ...styles.tabBtn, color: tab === key ? COLORS.ink : COLORS.muted, fontWeight: tab === key ? 700 : 500 }}
-          >
-            {label}
-            {tab === key && <div style={styles.tabIndicator} />}
-          </button>
-        ))}
+        {tabsList.map(([key, label]) => {
+          const Icon = TAB_ICONS[key];
+          return (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              style={{ ...styles.tabBtn, color: tab === key ? COLORS.ink : COLORS.muted, fontWeight: tab === key ? 700 : 500 }}
+            >
+              <Icon size={14} strokeWidth={2.25} style={{ verticalAlign: -2.5, marginRight: 5 }} />
+              {label}
+              {tab === key && <div style={styles.tabIndicator} />}
+            </button>
+          );
+        })}
       </div>
 
       <div style={styles.content} className="content-safe">
