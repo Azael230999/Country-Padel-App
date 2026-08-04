@@ -261,6 +261,29 @@ export default function CountryPadelApp() {
     }
   };
 
+  const importAlumnosGrupo = async (list) => {
+    try {
+      for (const data of list) {
+        const label = grupoLabel(data.deporte, data.categoria);
+        const prog = groupSchedule?.[label] || {};
+        await createAcademyStudent(academyId, {
+          nombre: data.nombre,
+          deporte: data.deporte,
+          categoria: data.categoria,
+          edad: data.edad || "",
+          descripcion: data.descripcion || "",
+          puntos: data.puntos || [],
+          assignedCoachUids: (groupAssignments && groupAssignments[label]) || [],
+          horario: prog.horario || "",
+          plan: prog.plan || "",
+        });
+      }
+      setSaveError(false);
+    } catch (e) {
+      setSaveError(true);
+    }
+  };
+
   const updateAlumnoGrupo = async (id, patch) => {
     try {
       if (patch.deporte || patch.categoria) {
@@ -479,6 +502,7 @@ export default function CountryPadelApp() {
               setView("grupoDetalle");
             }}
             onAdd={addAlumnoGrupo}
+            onImport={importAlumnosGrupo}
           />
         )}
         {view === "grupoDetalle" && (
