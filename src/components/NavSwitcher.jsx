@@ -1,4 +1,7 @@
+import { Home, GraduationCap, Layers, Calendar, Users } from "lucide-react";
 import { styles } from "../styles.js";
+
+const ICONS = { hoy: Home, directorio: GraduationCap, grupos: Layers, calendario: Calendar, coaches: Users };
 
 export function NavSwitcher({ nav, setNav, isAdmin }) {
   const items = [["hoy", "Hoy"], ["directorio", "Mis alumnos"], ["grupos", "Mis grupos"], ["calendario", "Calendario"]];
@@ -6,16 +9,30 @@ export function NavSwitcher({ nav, setNav, isAdmin }) {
   const activeMap = { grupoDetalle: "grupos", eventoDetalle: "calendario", pagosPendientes: "hoy" };
   const activeNav = activeMap[nav] || nav;
   return (
-    <div style={{ ...styles.segmented, overflowX: "auto" }}>
-      {items.map(([key, label]) => (
-        <button
-          key={key}
-          style={{ ...styles.segmentBtn, whiteSpace: "nowrap", ...(activeNav === key ? styles.segmentBtnActive : {}) }}
-          onClick={() => setNav(key)}
-        >
-          {label}
-        </button>
-      ))}
+    <div style={{ ...styles.segmented }}>
+      {items.map(([key, label]) => {
+        const Icon = ICONS[key];
+        return (
+          <button
+            key={key}
+            style={{
+              ...styles.segmentBtn,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 3,
+              padding: "7px 0 6px",
+              fontSize: 10,
+              whiteSpace: "nowrap",
+              ...(activeNav === key ? styles.segmentBtnActive : {}),
+            }}
+            onClick={() => setNav(key)}
+          >
+            <Icon size={15} strokeWidth={2.25} />
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
