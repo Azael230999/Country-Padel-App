@@ -1,9 +1,11 @@
 import { useState, useRef } from "react";
+import { Search } from "lucide-react";
 import { styles } from "../styles.js";
-import { COLORS } from "../constants.js";
+import { COLORS, formatNivel } from "../constants.js";
 import { NavSwitcher } from "../components/NavSwitcher.jsx";
 import { MigrationBanner } from "../components/MigrationBanner.jsx";
 import { EditableRow } from "../components/EditableRow.jsx";
+import { EmptyState } from "../components/EmptyState.jsx";
 
 export function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno, setShowNuevoAlumno, addStudent, onImportAll, coach, onUpdateCoach, migration, onMigrate, onDismissMigration, onSignOut, isAdmin, nav, setNav }) {
   const [nombre, setNombre] = useState("");
@@ -81,7 +83,7 @@ export function Directorio({ students, busqueda, setBusqueda, onSelect, showNuev
             <EditableRow k="Rol" v={coach.rol} onSave={(v) => onUpdateCoach({ rol: v })} />
             <EditableRow k="Teléfono" v={coach.telefono} onSave={(v) => onUpdateCoach({ telefono: v })} />
             <EditableRow k="Email" v={coach.email} onSave={(v) => onUpdateCoach({ email: v })} />
-            <EditableRow k="" v={coach.bio || "Agrega una breve descripción o certificaciones"} onSave={(v) => onUpdateCoach({ bio: v })} multiline />
+            <EditableRow k="" v={coach.bio} onSave={(v) => onUpdateCoach({ bio: v })} multiline />
           </div>
         )}
 
@@ -140,7 +142,12 @@ export function Directorio({ students, busqueda, setBusqueda, onSelect, showNuev
         )}
 
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-          {filtrados.length === 0 && <div style={styles.empty}>No hay alumnos que coincidan.</div>}
+          {filtrados.length === 0 && (
+            <EmptyState
+              Icon={Search}
+              text={busqueda.trim() ? "Ningún alumno coincide con tu búsqueda." : "Aún no tienes alumnos — agrega el primero arriba."}
+            />
+          )}
           {filtrados.map((s) => {
             let tagText, alerta;
             if ((s.modalidad || "paquete") === "porClase") {
@@ -158,7 +165,7 @@ export function Directorio({ students, busqueda, setBusqueda, onSelect, showNuev
                 <div style={styles.avatar}>{s.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>
                 <div style={{ flex: 1, textAlign: "left" }}>
                   <div style={styles.nombre}>{s.nombre}</div>
-                  <div style={styles.meta}>{s.grupo} · Nivel {s.nivel}</div>
+                  <div style={styles.meta}>{s.grupo} · Nivel {formatNivel(s.nivel)}</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ ...styles.restantesTag, color: alerta ? COLORS.red : COLORS.muted }}>

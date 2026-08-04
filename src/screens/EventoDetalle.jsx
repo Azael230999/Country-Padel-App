@@ -33,7 +33,7 @@ export function EventoDetalle({ evento, coaches, onBack, onUpdate, onDelete }) {
             <EditableRow k="Título" v={evento.titulo} onSave={(v) => onUpdate({ titulo: v })} />
             <EditableRow k="Hora" v={evento.hora} onSave={(v) => onUpdate({ hora: v })} />
             <EditableRow k="Lugar" v={evento.lugar} onSave={(v) => onUpdate({ lugar: v })} />
-            <EditableRow k="" v={evento.descripcion || "Tocar para agregar una descripción"} onSave={(v) => onUpdate({ descripcion: v })} multiline />
+            <EditableRow k="" v={evento.descripcion} onSave={(v) => onUpdate({ descripcion: v })} multiline />
           </div>
 
           <div style={styles.card}>

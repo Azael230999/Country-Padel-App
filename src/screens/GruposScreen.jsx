@@ -1,18 +1,12 @@
 import { useState } from "react";
-import { Clock, ClipboardList, ChevronDown } from "lucide-react";
+import { Clock, ClipboardList, ChevronDown, Layers } from "lucide-react";
 import { styles } from "../styles.js";
 import { COLORS } from "../constants.js";
 import { NavSwitcher } from "../components/NavSwitcher.jsx";
 import { EditableRow } from "../components/EditableRow.jsx";
 import { PuntoRow } from "../components/Puntos.jsx";
-
-function IconBadge({ Icon }) {
-  return (
-    <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(214,178,62,0.16)", color: COLORS.clay, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-      <Icon size={15} strokeWidth={2.25} />
-    </div>
-  );
-}
+import { EmptyState } from "../components/EmptyState.jsx";
+import { IconBadge } from "../components/IconBadge.jsx";
 
 export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSchedule, nav, setNav, onSelect, onAdd }) {
   const [showNuevo, setShowNuevo] = useState(false);
@@ -88,7 +82,9 @@ export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSched
         )}
 
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-          {alumnos.length === 0 && <div style={styles.empty}>{isAdmin ? "Aún no hay alumnos de grupo." : "Todavía no tienes grupos asignados."}</div>}
+          {alumnos.length === 0 && (
+            <EmptyState Icon={Layers} text={isAdmin ? "Aún no hay alumnos de grupo — agrega el primero arriba." : "Todavía no tienes grupos asignados."} />
+          )}
           {grupoKeys.map((key) => {
             const prog = schedule?.[key] || {};
             const tieneInfo = Boolean(prog.horario || prog.plan);

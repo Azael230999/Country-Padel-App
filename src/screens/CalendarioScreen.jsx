@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Calendar } from "lucide-react";
 import { styles } from "../styles.js";
 import { COLORS } from "../constants.js";
 import { NavSwitcher } from "../components/NavSwitcher.jsx";
+import { EmptyState } from "../components/EmptyState.jsx";
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const DOW = ["L", "M", "M", "J", "V", "S", "D"];
@@ -186,7 +188,7 @@ export function CalendarioScreen({ isAdmin, eventos, coaches, nav, setNav, onSel
 
         <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={styles.sesionesLabel}>{tituloLista}</div>
-          {listaAMostrar.length === 0 && <div style={styles.empty}>No hay eventos por aquí.</div>}
+          {listaAMostrar.length === 0 && <EmptyState Icon={Calendar} text="Aún no hay eventos agendados." />}
           {listaAMostrar.map((e) => {
             const { dia, mes } = fmtCorto(e.fecha);
             const Contenedor = isAdmin ? "button" : "div";

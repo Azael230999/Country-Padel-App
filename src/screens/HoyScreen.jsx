@@ -47,7 +47,7 @@ export function HoyScreen({ isAdmin, students, eventos, nav, setNav, onVerPagos 
       <div style={styles.header} className="header-safe">
         <div style={styles.brand}>COUNTRY PADEL</div>
         <div style={styles.titulo}>Hoy</div>
-        <div style={{ marginBottom: 4 }}>
+        <div style={{ marginTop: 12, marginBottom: 4 }}>
           <NavSwitcher nav={nav} setNav={setNav} isAdmin={isAdmin} />
         </div>
       </div>

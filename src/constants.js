@@ -52,3 +52,12 @@ export function fmt(dateStr) {
   const meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
   return `${d} ${meses[parseInt(m, 10) - 1]}`;
 }
+
+// Nivel se guarda como texto libre (ej. "4.0", "3.00", "4"); esto lo muestra
+// sin decimales si es un número entero, o con máximo 1 decimal si no lo es.
+// Valores no numéricos (ej. el placeholder "—") se devuelven tal cual.
+export function formatNivel(nivel) {
+  const num = Number(nivel);
+  if (nivel === "" || nivel == null || Number.isNaN(num)) return nivel;
+  return Number.isInteger(num) ? String(num) : String(Math.round(num * 10) / 10);
+}
