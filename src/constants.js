@@ -19,6 +19,15 @@ export function grupoLabel(deporte, categoria) {
 // caliza de Yucatán. clay = acento sólido (botones/estados activos, siempre
 // con texto claro encima); ball = acento brillante (para texto/insignias
 // sobre el header oscuro, donde clay no tiene suficiente contraste).
+//
+// Tokens (sección 2 de la propuesta de sistema de diseño):
+//   --bg-header      -> ink    --accent-primary -> clay   --text-muted -> muted
+//   --bg-app         -> bg     --accent-gold    -> ball   --danger     -> red
+//   --bg-card        -> card                              --success    -> green
+//   --text-primary   -> ink
+// ball (dorado) es solo para insignias/destacados (nivel, avatar, badges) —
+// nunca para indicar un resultado positivo ("GANÓ" usa green, no ball, para
+// no confundirse con el badge de nivel).
 export const COLORS = {
   ink: "#2A1D14",
   bg: "#F5EEE2",

@@ -490,7 +490,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
                   <div style={styles.matchTop}>
                     <span style={styles.matchDate}>{fmt(p.fecha) || p.fecha}</span>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ ...styles.resultChip, background: p.resu === "W" ? COLORS.ball : COLORS.border }}>
+                      <span style={{ ...styles.resultChip, background: p.resu === "W" ? COLORS.green : COLORS.border }}>
                         {p.resu === "W" ? "GANÓ" : "PERDIÓ"}
                       </span>
                       {!readOnly && <button style={styles.deleteBtn} onClick={() => removeAt("partidos", i)} aria-label="Eliminar partido">×</button>}
