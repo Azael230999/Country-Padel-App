@@ -87,90 +87,90 @@ export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSched
           </>
         )}
 
-        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
           {alumnos.length === 0 && <div style={styles.empty}>{isAdmin ? "Aún no hay alumnos de grupo." : "Todavía no tienes grupos asignados."}</div>}
           {grupoKeys.map((key) => {
             const prog = schedule?.[key] || {};
             const tieneInfo = Boolean(prog.horario || prog.plan);
             const abierto = Boolean(abiertos[key]);
-            const clickable = isAdmin || tieneInfo;
+            const cantidad = porGrupo[key].length;
             return (
             <div key={key}>
-              {clickable ? (
-                <button
-                  onClick={() => setAbiertos((prev) => ({ ...prev, [key]: !prev[key] }))}
-                  style={{ display: "flex", alignItems: "center", width: "100%", background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "'Karla', sans-serif", textAlign: "left" }}
-                >
-                  <span style={{ ...styles.sesionesLabel, marginTop: 0, flex: 1 }}>{key}</span>
-                  {tieneInfo && <span style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.ball, marginRight: 8 }} />}
-                  <ChevronDown size={16} strokeWidth={2.5} color={COLORS.muted} style={{ transform: abierto ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }} />
-                </button>
-              ) : (
-                <div style={styles.sesionesLabel}>{key}</div>
-              )}
-              {abierto && isAdmin && (
-                <div style={{ ...styles.card, marginTop: 8, display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <IconBadge Icon={Clock} />
-                    <div style={{ flex: 1 }}>
-                      <div style={styles.cardLabel}>Horario</div>
-                      <EditableRow k="" v={prog.horario} onSave={(v) => onUpdateSchedule(key, { horario: v })} />
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <IconBadge Icon={ClipboardList} />
-                    <div style={{ flex: 1 }}>
-                      <div style={styles.cardLabel}>Plan de entrenamiento</div>
-                      <EditableRow k="" v={prog.plan} onSave={(v) => onUpdateSchedule(key, { plan: v })} multiline />
-                    </div>
-                  </div>
-                </div>
-              )}
-              {abierto && !isAdmin && tieneInfo && (
-                <div style={{ ...styles.card, marginTop: 8, display: "flex", flexDirection: "column", gap: 12 }}>
-                  {prog.horario && (
-                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                      <IconBadge Icon={Clock} />
-                      <div style={{ flex: 1 }}>
-                        <div style={styles.cardLabel}>Horario</div>
-                        <p style={{ ...styles.matchNote, marginTop: 0 }}>{prog.horario}</p>
-                      </div>
-                    </div>
-                  )}
-                  {prog.plan && (
-                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                      <IconBadge Icon={ClipboardList} />
-                      <div style={{ flex: 1 }}>
-                        <div style={styles.cardLabel}>Plan de entrenamiento</div>
-                        <p style={{ ...styles.matchNote, marginTop: 0, whiteSpace: "pre-wrap" }}>{prog.plan}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                {porGrupo[key].map((a) =>
-                  isAdmin ? (
-                    <button key={a.id} onClick={() => onSelect(a.id)} style={styles.row}>
-                      <div style={styles.avatar}>{a.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>
-                      <div style={{ flex: 1, textAlign: "left" }}>
-                        <div style={styles.nombre}>{a.nombre}</div>
-                        <div style={styles.meta}>{a.edad ? `${a.edad} años` : "Sin edad"}</div>
-                      </div>
-                    </button>
-                  ) : (
-                    <div key={a.id} style={styles.card}>
-                      <div style={styles.cardLabel}>{a.nombre}{a.edad ? ` · ${a.edad} años` : ""}</div>
-                      {a.descripcion && <p style={styles.matchNote}>{a.descripcion}</p>}
-                      {(a.puntos || []).length > 0 && (
-                        <div style={{ marginTop: 6 }}>
-                          {a.puntos.map((p, i) => <PuntoRow key={i} punto={p} />)}
+              <button
+                onClick={() => setAbiertos((prev) => ({ ...prev, [key]: !prev[key] }))}
+                style={{ display: "flex", alignItems: "center", width: "100%", background: styles.card.background, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "12px 14px", cursor: "pointer", fontFamily: "'Karla', sans-serif", textAlign: "left" }}
+              >
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.ink, flex: 1 }}>{key}</span>
+                <span style={{ fontSize: 11.5, color: COLORS.muted, marginRight: 8 }}>{cantidad} alumno{cantidad !== 1 ? "s" : ""}</span>
+                {tieneInfo && <span style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.ball, marginRight: 8 }} />}
+                <ChevronDown size={16} strokeWidth={2.5} color={COLORS.muted} style={{ transform: abierto ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }} />
+              </button>
+              {abierto && (
+                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {isAdmin ? (
+                    <div style={{ ...styles.card, display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                        <IconBadge Icon={Clock} />
+                        <div style={{ flex: 1 }}>
+                          <div style={styles.cardLabel}>Horario</div>
+                          <EditableRow k="" v={prog.horario} onSave={(v) => onUpdateSchedule(key, { horario: v })} />
                         </div>
-                      )}
+                      </div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                        <IconBadge Icon={ClipboardList} />
+                        <div style={{ flex: 1 }}>
+                          <div style={styles.cardLabel}>Plan de entrenamiento</div>
+                          <EditableRow k="" v={prog.plan} onSave={(v) => onUpdateSchedule(key, { plan: v })} multiline />
+                        </div>
+                      </div>
                     </div>
-                  )
-                )}
-              </div>
+                  ) : (
+                    tieneInfo && (
+                      <div style={{ ...styles.card, display: "flex", flexDirection: "column", gap: 12 }}>
+                        {prog.horario && (
+                          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                            <IconBadge Icon={Clock} />
+                            <div style={{ flex: 1 }}>
+                              <div style={styles.cardLabel}>Horario</div>
+                              <p style={{ ...styles.matchNote, marginTop: 0 }}>{prog.horario}</p>
+                            </div>
+                          </div>
+                        )}
+                        {prog.plan && (
+                          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                            <IconBadge Icon={ClipboardList} />
+                            <div style={{ flex: 1 }}>
+                              <div style={styles.cardLabel}>Plan de entrenamiento</div>
+                              <p style={{ ...styles.matchNote, marginTop: 0, whiteSpace: "pre-wrap" }}>{prog.plan}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  )}
+                  {porGrupo[key].map((a) =>
+                    isAdmin ? (
+                      <button key={a.id} onClick={() => onSelect(a.id)} style={styles.row}>
+                        <div style={styles.avatar}>{a.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>
+                        <div style={{ flex: 1, textAlign: "left" }}>
+                          <div style={styles.nombre}>{a.nombre}</div>
+                          <div style={styles.meta}>{a.edad ? `${a.edad} años` : "Sin edad"}</div>
+                        </div>
+                      </button>
+                    ) : (
+                      <div key={a.id} style={styles.card}>
+                        <div style={styles.cardLabel}>{a.nombre}{a.edad ? ` · ${a.edad} años` : ""}</div>
+                        {a.descripcion && <p style={styles.matchNote}>{a.descripcion}</p>}
+                        {(a.puntos || []).length > 0 && (
+                          <div style={{ marginTop: 6 }}>
+                            {a.puntos.map((p, i) => <PuntoRow key={i} punto={p} />)}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
             </div>
             );
           })}
