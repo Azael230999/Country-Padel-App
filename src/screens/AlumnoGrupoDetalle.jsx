@@ -41,7 +41,7 @@ export function AlumnoGrupoDetalle({ alumno, academyCoaches, groupAssignments, g
             <div style={styles.cardLabel}>Datos</div>
             <EditableRow k="Nombre" v={alumno.nombre} onSave={(v) => onUpdate({ nombre: v })} />
             <EditableRow k="Edad" v={alumno.edad} onSave={(v) => onUpdate({ edad: v })} />
-            <EditableRow k="" v={alumno.descripcion || "Tocar para agregar una descripción"} onSave={(v) => onUpdate({ descripcion: v })} multiline />
+            <EditableRow k="" v={alumno.descripcion} onSave={(v) => onUpdate({ descripcion: v })} multiline />
           </div>
 
           <div style={styles.card}>

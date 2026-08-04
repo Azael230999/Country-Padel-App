@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Users } from "lucide-react";
 import { styles } from "../styles.js";
 import { COLORS, computeGrupoLabels } from "../constants.js";
 import { NavSwitcher } from "../components/NavSwitcher.jsx";
+import { EmptyState } from "../components/EmptyState.jsx";
 
 export function CoachesScreen({ coaches, groupAssignments, onUpdateAssignments, grupos, onUpdateGrupos, alumnos, nav, setNav, onAddCoach }) {
   const [showNuevo, setShowNuevo] = useState(false);
@@ -92,7 +94,7 @@ export function CoachesScreen({ coaches, groupAssignments, onUpdateAssignments, 
 
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
           {coaches === null && <div className="spinner" style={styles.spinner} />}
-          {coaches && coaches.length === 0 && <div style={styles.empty}>Aún no has agregado coaches.</div>}
+          {coaches && coaches.length === 0 && <EmptyState Icon={Users} text="Aún no has agregado coaches — agrega el primero arriba." />}
           {coaches && coaches.map((c) => (
             <div key={c.uid} style={styles.row}>
               <div style={styles.avatar}>{(c.nombre || c.email || "?").split(" ").map((n) => n[0]).slice(0, 2).join("")}</div>

@@ -6,3 +6,4 @@ dist-ssr
 firestore-debug.log
 ui-debug.log
 .firebase
+.claude/scheduled_tasks.lock

@@ -1,17 +1,12 @@
 import { useState, useRef } from "react";
 import { User, Target, CalendarCheck, Trophy, StickyNote } from "lucide-react";
 import { styles } from "../styles.js";
-import { COLORS, fmt } from "../constants.js";
+import { COLORS, fmt, formatNivel } from "../constants.js";
 import { EditableRow } from "../components/EditableRow.jsx";
 import { PuntoRow, NuevoPuntoForm } from "../components/Puntos.jsx";
+import { EmptyState } from "../components/EmptyState.jsx";
 
 const TAB_ICONS = { perfil: User, entrenamiento: Target, asistencia: CalendarCheck, partidos: Trophy, notas: StickyNote };
-
-function formatNivel(nivel) {
-  const num = Number(nivel);
-  if (nivel === "" || nivel == null || Number.isNaN(num)) return nivel;
-  return Number.isInteger(num) ? String(num) : String(Math.round(num * 10) / 10);
-}
 
 export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, readOnly = false, coachProfile = null }) {
   const restantes = alumno.paquete.finalizado ? 0 : alumno.paquete.total - alumno.paquete.usadas;
@@ -173,11 +168,11 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
               <EditableRow k="Teléfono" v={alumno.telefono} onSave={(v) => onUpdate({ telefono: v })} />
               <EditableRow k="Miembro desde" v={alumno.miembroDesde} onSave={(v) => onUpdate({ miembroDesde: v })} />
               <EditableRow k="Grupo" v={alumno.grupo} onSave={(v) => onUpdate({ grupo: v })} />
-              <EditableRow k="Nivel" v={alumno.nivel} onSave={(v) => onUpdate({ nivel: v })} />
+              <EditableRow k="Nivel" v={formatNivel(alumno.nivel)} onSave={(v) => onUpdate({ nivel: v })} />
             </div>
             <div style={styles.card}>
               <div style={styles.cardLabel}>Físico / lesiones</div>
-              <EditableRow k="" v={alumno.fisico || "Sin observaciones"} onSave={(v) => onUpdate({ fisico: v })} multiline />
+              <EditableRow k="" v={alumno.fisico} onSave={(v) => onUpdate({ fisico: v })} multiline />
             </div>
             <div style={styles.card}>
               <div style={styles.cardLabel}>Vista para el alumno</div>
@@ -248,6 +243,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
             )}
 
             <div style={styles.sesionesLabel}>Bitácora de clases</div>
+            {alumno.sesiones.length === 0 && <EmptyState Icon={Target} text="Aún no hay clases registradas en la bitácora." />}
             {alumno.sesiones.map((_, i) => i).reverse().map((i) => {
               const s = alumno.sesiones[i];
               return (
@@ -483,6 +479,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
 
         {tab === "partidos" && (
           <div style={styles.section}>
+            {alumno.partidos.length === 0 && <EmptyState Icon={Trophy} text="Aún no hay partidos registrados." />}
             {alumno.partidos.map((_, i) => i).reverse().map((i) => {
               const p = alumno.partidos[i];
               return (
@@ -538,6 +535,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
 
         {tab === "notas" && (
           <div style={styles.section}>
+            {alumno.notas.length === 0 && <EmptyState Icon={StickyNote} text="Aún no hay notas de este alumno." />}
             <div style={styles.timeline}>
               {alumno.notas.map((_, i) => i).reverse().map((i) => {
                 const n = alumno.notas[i];
