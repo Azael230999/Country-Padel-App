@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Clock, ClipboardList, ChevronDown, Layers } from "lucide-react";
 import { styles } from "../styles.js";
 import { COLORS } from "../constants.js";
@@ -8,7 +8,7 @@ import { PuntoRow } from "../components/Puntos.jsx";
 import { EmptyState } from "../components/EmptyState.jsx";
 import { IconBadge } from "../components/IconBadge.jsx";
 
-export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSchedule, nav, setNav, onSelect, onAdd }) {
+export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSchedule, nav, setNav, onSelect, onAdd, onImport }) {
   const [showNuevo, setShowNuevo] = useState(false);
   const [abiertos, setAbiertos] = useState({});
   const [nombre, setNombre] = useState("");
@@ -16,6 +16,27 @@ export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSched
   const [deporte, setDeporte] = useState(primerDeporte);
   const [categoria, setCategoria] = useState(grupos[primerDeporte]?.[0] || "");
   const [edad, setEdad] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importOk, setImportOk] = useState("");
+  const fileInputRef = useRef(null);
+
+  const importarAlumnos = (file) => {
+    setImportError("");
+    setImportOk("");
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!Array.isArray(data)) throw new Error("Formato inválido");
+        if (!window.confirm(`Se agregarán ${data.length} alumnos nuevos a sus grupos correspondientes. ¿Continuar?`)) return;
+        await onImport(data);
+        setImportOk(`${data.length} alumnos importados.`);
+      } catch (e) {
+        setImportError("El archivo no es un JSON válido de alumnos de grupo.");
+      }
+    };
+    reader.readAsText(file);
+  };
 
   if (alumnos === null) {
     return (
@@ -46,9 +67,27 @@ export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSched
 
         {isAdmin && (
           <>
-            <button style={styles.secondaryBtn} onClick={() => setShowNuevo((v) => !v)}>
-              {showNuevo ? "Cancelar" : "+ Nuevo alumno de grupo"}
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...styles.secondaryBtn, flex: 1 }} onClick={() => setShowNuevo((v) => !v)}>
+                {showNuevo ? "Cancelar" : "+ Nuevo alumno de grupo"}
+              </button>
+              <button style={{ ...styles.secondaryBtnSmall, flex: "0 0 auto", padding: "9px 14px" }} onClick={() => fileInputRef.current?.click()}>
+                Importar
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json,.json"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) importarAlumnos(file);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            {importError && <div style={styles.importError}>{importError}</div>}
+            {importOk && <div style={{ fontSize: 12, color: COLORS.green, marginTop: 6 }}>{importOk}</div>}
             {showNuevo && (
               <div style={{ ...styles.card, marginTop: 10 }}>
                 <input style={styles.input} placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
