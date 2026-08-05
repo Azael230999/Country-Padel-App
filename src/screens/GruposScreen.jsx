@@ -7,8 +7,10 @@ import { EditableRow } from "../components/EditableRow.jsx";
 import { PuntoRow } from "../components/Puntos.jsx";
 import { EmptyState } from "../components/EmptyState.jsx";
 import { IconBadge } from "../components/IconBadge.jsx";
+import { SkeletonList } from "../components/Skeleton.jsx";
+import { ErrorState } from "../components/ErrorState.jsx";
 
-export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSchedule, nav, setNav, onSelect, onAdd, onImport }) {
+export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSchedule, saveError, nav, setNav, onSelect, onAdd, onImport }) {
   const [showNuevo, setShowNuevo] = useState(false);
   const [abiertos, setAbiertos] = useState({});
   const [nombre, setNombre] = useState("");
@@ -40,9 +42,18 @@ export function GruposScreen({ isAdmin, alumnos, grupos, schedule, onUpdateSched
 
   if (alumnos === null) {
     return (
-      <div style={styles.content} className="content-safe">
-        <div className="spinner" style={styles.spinner} />
-      </div>
+      <>
+        <div style={styles.header} className="header-safe">
+          <div style={styles.brand}>COUNTRY PADEL</div>
+          <div style={styles.titulo}>Mis grupos</div>
+          <div style={{ marginTop: 12, marginBottom: 4 }}>
+            <NavSwitcher nav={nav} setNav={setNav} isAdmin={isAdmin} />
+          </div>
+        </div>
+        <div style={styles.content} className="content-safe">
+          {saveError ? <ErrorState text="No se pudieron cargar los grupos." /> : <SkeletonList rows={4} />}
+        </div>
+      </>
     );
   }
 

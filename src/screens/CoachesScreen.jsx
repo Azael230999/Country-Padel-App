@@ -4,8 +4,10 @@ import { styles } from "../styles.js";
 import { COLORS, computeGrupoLabels } from "../constants.js";
 import { NavSwitcher } from "../components/NavSwitcher.jsx";
 import { EmptyState } from "../components/EmptyState.jsx";
+import { SkeletonList } from "../components/Skeleton.jsx";
+import { ErrorState } from "../components/ErrorState.jsx";
 
-export function CoachesScreen({ coaches, groupAssignments, onUpdateAssignments, grupos, onUpdateGrupos, alumnos, nav, setNav, onAddCoach }) {
+export function CoachesScreen({ coaches, groupAssignments, onUpdateAssignments, grupos, onUpdateGrupos, alumnos, saveError, nav, setNav, onAddCoach }) {
   const [showNuevo, setShowNuevo] = useState(false);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -93,7 +95,7 @@ export function CoachesScreen({ coaches, groupAssignments, onUpdateAssignments, 
         )}
 
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-          {coaches === null && <div className="spinner" style={styles.spinner} />}
+          {coaches === null && (saveError ? <ErrorState text="No se pudieron cargar los coaches." /> : <SkeletonList rows={3} />)}
           {coaches && coaches.length === 0 && <EmptyState Icon={Users} text="Aún no has agregado coaches — agrega el primero arriba." />}
           {coaches && coaches.map((c) => (
             <div key={c.uid} style={styles.row}>
@@ -203,7 +205,7 @@ function CategoriaCard({ deporte, categorias, onRemoveCategoria, onRemoveDeporte
           onChange={(e) => setNueva(e.target.value)}
         />
         <button
-          style={{ ...styles.addBtn, width: "auto", padding: "9px 14px" }}
+          style={{ ...styles.secondaryBtn, width: "auto", padding: "9px 14px" }}
           disabled={!nueva.trim() || categorias.includes(nueva.trim())}
           onClick={() => { onAddCategoria(nueva.trim()); setNueva(""); }}
         >
@@ -223,7 +225,7 @@ function NuevoDeporteCard({ existentes, onAdd }) {
       <input style={styles.input} placeholder="Nombre del deporte" value={nombre} onChange={(e) => setNombre(e.target.value)} />
       <input style={styles.input} placeholder="Primera categoría" value={categoria} onChange={(e) => setCategoria(e.target.value)} />
       <button
-        style={styles.addBtn}
+        style={styles.secondaryBtn}
         disabled={!nombre.trim() || !categoria.trim() || existentes.includes(nombre.trim())}
         onClick={() => { onAdd(nombre.trim(), categoria.trim()); setNombre(""); setCategoria(""); }}
       >

@@ -36,10 +36,47 @@ export const COLORS = {
   clay: "#B24A28",
   ball: "#D6B23E",
   muted: "#8C7862",
-  red: "#8B2E2E",
-  amber: "#C97C3D",
+  // rojo "error/destructivo": antes #8B2E2E (hue 0°), a solo 15° de clay
+  // (hue ~15°) en la rueda de color — se sentían parientes. Este es más
+  // frío/azulado (hue ~344°, hacia el magenta) para separarse con claridad
+  // del terracota de marca sin dejar de leerse como rojo.
+  red: "#9B2242",
+  // ámbar "advertencia": antes #C97C3D (hue 27°, todavía del lado naranja).
+  // Este está en la familia dorada de `ball` (hue ~46°) en vez de naranja,
+  // y es deliberadamente oscuro — un dorado claro nunca pasa 4.5:1 como
+  // texto (ver SEMANTIC.warning más abajo, verificado con WCAG).
+  amber: "#5C420C",
   green: "#6B8F5C",
 };
+
+// Colores semánticos: cada estado trae "bg" (fondo claro para tags/chips) y
+// "fg" (texto/ícono que va encima de ese bg). Todos los pares fg-sobre-bg
+// pasan WCAG AA para texto normal (>=4.5:1) — verificado con la fórmula de
+// contraste estándar (luminancia relativa), no a ojo:
+//   success  6.24:1   warning  7.68:1   error  5.98:1   info  6.20:1
+// `success` usa un verde más oscuro que COLORS.green porque ese último es
+// un color de superficie (fondo de chip), no de texto — no sirven los dos
+// roles con el mismo tono. `warning.fg` reusa COLORS.amber y `error.fg`
+// reusa COLORS.red, así que cualquier lugar que ya usaba esos tokens hereda
+// la corrección de tono automáticamente.
+export const SEMANTIC = {
+  success: { bg: "#E3EDDD", fg: "#3F5C34" },
+  warning: { bg: "#F5E8C2", fg: COLORS.amber },
+  error: { bg: "#F3DCE2", fg: COLORS.red },
+  info: { bg: "#DCE6EE", fg: "#2C5578" },
+};
+
+// Elevación: 4 niveles, sombra siempre con tinte café (COLORS.ink = 42,29,20)
+// en vez de negro puro, para que se sienta parte de la misma paleta cálida.
+export const ELEVATION = {
+  1: "0 1px 2px rgba(42,29,20,0.08)",
+  2: "0 2px 6px rgba(42,29,20,0.10), 0 1px 2px rgba(42,29,20,0.06)",
+  3: "0 8px 20px rgba(42,29,20,0.14)",
+  4: "0 20px 48px rgba(42,29,20,0.22)",
+};
+
+// Espaciado: grid de 8px.
+export const SPACING = { sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 };
 
 export const DEFAULT_COACH = { nombre: "", rol: "Coach de Padel", telefono: "", email: "", bio: "", academyId: "", isAdmin: true };
 

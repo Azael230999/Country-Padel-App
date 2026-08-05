@@ -1,4 +1,4 @@
-import { COLORS } from "./constants.js";
+import { COLORS, ELEVATION } from "./constants.js";
 
 export const fontImport = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Karla:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap');
@@ -18,8 +18,8 @@ export const fontImport = `
     }
   }
 
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner { animation: spin 0.8s linear infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+  .skeleton-pulse { animation: pulse 1.3s ease-in-out infinite; }
 
   @media (display-mode: standalone) {
     .header-safe { padding-top: max(18px, env(safe-area-inset-top)) !important; }
@@ -29,9 +29,8 @@ export const fontImport = `
 
 export const styles = {
   app: { minHeight: "100vh", background: "#1C130D", display: "flex", justifyContent: "center", fontFamily: "'Karla', sans-serif", padding: "24px 12px" },
-  phone: { width: 390, maxWidth: "100%", background: COLORS.bg, borderRadius: 28, overflow: "hidden", boxShadow: "0 30px 60px rgba(0,0,0,0.4)", display: "flex", flexDirection: "column", height: 780, position: "relative" },
-  loadingBox: { width: 390, maxWidth: "100%", background: COLORS.bg, borderRadius: 28, boxShadow: "0 30px 60px rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", height: 780 },
-  spinner: { width: 32, height: 32, borderRadius: "50%", border: "3px solid #EFE3CE", borderTopColor: COLORS.ink },
+  phone: { width: 390, maxWidth: "100%", background: COLORS.bg, borderRadius: 28, overflow: "hidden", boxShadow: ELEVATION[4], display: "flex", flexDirection: "column", height: 780, position: "relative" },
+  loadingBox: { width: 390, maxWidth: "100%", background: COLORS.bg, borderRadius: 28, boxShadow: ELEVATION[4], display: "flex", alignItems: "center", justifyContent: "center", height: 780 },
   saveErrorBanner: { position: "absolute", top: 0, left: 0, right: 0, background: COLORS.red, color: "#fff", fontSize: 11, textAlign: "center", padding: "6px 10px", zIndex: 5 },
   header: { background: COLORS.ink, color: COLORS.bg, padding: "18px 18px 0" },
   headerTopRow: { marginBottom: 10 },
@@ -53,7 +52,6 @@ export const styles = {
   section: { display: "flex", flexDirection: "column", gap: 12 },
   card: { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 14 },
   cardLabel: { fontSize: 10.5, letterSpacing: 1, color: COLORS.muted, fontWeight: 700, marginBottom: 8, textTransform: "uppercase" },
-  empty: { fontSize: 13, color: COLORS.muted, textAlign: "center", padding: "30px 10px" },
   row: { display: "flex", alignItems: "center", gap: 12, background: COLORS.card, border: `1.5px solid ${COLORS.border}`, borderRadius: 14, padding: 12, cursor: "pointer", width: "100%", fontFamily: "'Karla', sans-serif" },
   avatar: { width: 40, height: 40, borderRadius: "50%", background: "#F0E4D2", color: COLORS.ink, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, fontFamily: "'Fraunces', serif", flexShrink: 0 },
   nombre: { fontSize: 14, fontWeight: 700, color: COLORS.ink },
@@ -133,7 +131,14 @@ export const styles = {
   secondaryBtn: { background: "transparent", border: `1.5px solid ${COLORS.ink}`, color: COLORS.ink, borderRadius: 10, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Karla', sans-serif", width: "100%" },
   secondaryBtnSmall: { background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.muted, borderRadius: 9, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Karla', sans-serif", flex: 1 },
   primaryBtn: { background: COLORS.clay, color: COLORS.card, border: "none", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Karla', sans-serif", width: "100%" },
+  // Tercer nivel de jerarquía de botones: solo texto, sin fondo ni borde.
+  // Para acciones de bajo compromiso (ej. "Ver detalle", enlaces inline) que
+  // no deben competir visualmente con el primario ni el secundario.
+  tertiaryBtn: { background: "transparent", border: "none", color: COLORS.clay, padding: "10px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Karla', sans-serif", width: "100%" },
   iconBtn: { width: 44, flexShrink: 0, background: "transparent", border: `1.5px solid ${COLORS.ink}`, color: COLORS.ink, borderRadius: 10, fontSize: 16, cursor: "pointer" },
+  // Base para tags de estado (pagos, etc.) — siempre ícono + texto, nunca
+  // solo color. bg/fg se completan en el call site con SEMANTIC.<estado>.
+  statusTag: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, borderRadius: 8, padding: "4px 9px" },
   backupHint: { fontSize: 12, color: COLORS.muted, lineHeight: 1.5, margin: "0 0 10px" },
   importError: { fontSize: 12, color: COLORS.red, marginTop: 8 },
   deleteBtn: { background: "none", border: "none", color: COLORS.muted, fontSize: 18, lineHeight: 1, cursor: "pointer", padding: "2px 4px", flexShrink: 0 },

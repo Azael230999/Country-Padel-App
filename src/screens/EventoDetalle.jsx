@@ -1,12 +1,14 @@
 import { styles } from "../styles.js";
 import { COLORS } from "../constants.js";
 import { EditableRow } from "../components/EditableRow.jsx";
+import { SkeletonCard } from "../components/Skeleton.jsx";
+import { ErrorState } from "../components/ErrorState.jsx";
 
-export function EventoDetalle({ evento, coaches, onBack, onUpdate, onDelete }) {
-  if (!evento) {
+export function EventoDetalle({ evento, coaches, saveError, onBack, onUpdate, onDelete }) {
+  if (!evento || !coaches) {
     return (
       <div style={styles.content} className="content-safe">
-        <div className="spinner" style={styles.spinner} />
+        {saveError ? <ErrorState text="No se pudo cargar el evento." /> : <SkeletonCard lines={3} />}
       </div>
     );
   }

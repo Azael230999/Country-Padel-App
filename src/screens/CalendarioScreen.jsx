@@ -4,6 +4,8 @@ import { styles } from "../styles.js";
 import { COLORS } from "../constants.js";
 import { NavSwitcher } from "../components/NavSwitcher.jsx";
 import { EmptyState } from "../components/EmptyState.jsx";
+import { SkeletonList } from "../components/Skeleton.jsx";
+import { ErrorState } from "../components/ErrorState.jsx";
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const DOW = ["L", "M", "M", "J", "V", "S", "D"];
@@ -36,7 +38,7 @@ function fmtCorto(iso) {
   return { dia: parseInt(d, 10), mes: meses[parseInt(m, 10) - 1] };
 }
 
-export function CalendarioScreen({ isAdmin, eventos, coaches, nav, setNav, onSelect, onAdd }) {
+export function CalendarioScreen({ isAdmin, eventos, coaches, saveError, nav, setNav, onSelect, onAdd }) {
   const hoy = new Date();
   const [year, setYear] = useState(hoy.getFullYear());
   const [month, setMonth] = useState(hoy.getMonth());
@@ -50,11 +52,20 @@ export function CalendarioScreen({ isAdmin, eventos, coaches, nav, setNav, onSel
   const [todos, setTodos] = useState(true);
   const [elegidos, setElegidos] = useState([]);
 
-  if (eventos === null) {
+  if (eventos === null || (isAdmin && coaches === null)) {
     return (
-      <div style={styles.content} className="content-safe">
-        <div className="spinner" style={styles.spinner} />
-      </div>
+      <>
+        <div style={styles.header} className="header-safe">
+          <div style={styles.brand}>COUNTRY PADEL</div>
+          <div style={styles.titulo}>Calendario</div>
+          <div style={{ marginTop: 12, marginBottom: 4 }}>
+            <NavSwitcher nav={nav} setNav={setNav} isAdmin={isAdmin} />
+          </div>
+        </div>
+        <div style={styles.content} className="content-safe">
+          {saveError ? <ErrorState text="No se pudo cargar el calendario." /> : <SkeletonList rows={4} />}
+        </div>
+      </>
     );
   }
 

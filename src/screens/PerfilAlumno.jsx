@@ -1,10 +1,11 @@
 import { useState, useRef } from "react";
-import { User, Target, CalendarCheck, Trophy, StickyNote } from "lucide-react";
+import { User, Target, CalendarCheck, Trophy, StickyNote, Flag, Crosshair, Receipt } from "lucide-react";
 import { styles } from "../styles.js";
 import { COLORS, fmt, formatNivel } from "../constants.js";
 import { EditableRow } from "../components/EditableRow.jsx";
 import { PuntoRow, NuevoPuntoForm } from "../components/Puntos.jsx";
 import { EmptyState } from "../components/EmptyState.jsx";
+import { StatusTag } from "../components/StatusTag.jsx";
 
 const TAB_ICONS = { perfil: User, entrenamiento: Target, asistencia: CalendarCheck, partidos: Trophy, notas: StickyNote };
 
@@ -194,6 +195,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
           <div style={styles.section}>
             <div style={styles.card}>
               <div style={styles.cardLabel}>Objetivos</div>
+              {alumno.objetivos.length === 0 && <EmptyState Icon={Flag} text="Aún no hay objetivos definidos." />}
               {alumno.objetivos.map((o, i) => (
                 <div key={i} style={styles.objetivoRow}>
                   <div>
@@ -235,6 +237,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
             {!readOnly && (
             <div style={styles.card}>
               <div style={styles.cardLabel}>Puntos por desarrollar</div>
+              {alumno.puntos.length === 0 && <EmptyState Icon={Crosshair} text="Aún no hay puntos por desarrollar." />}
               {alumno.puntos.map((p, i) => (
                 <PuntoRow key={i} punto={p} onDelete={() => removeAt("puntos", i)} />
               ))}
@@ -377,31 +380,21 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
                   <span style={styles.pagoResumenPendientes}>{pendientesTotal} pendiente{pendientesTotal !== 1 ? "s" : ""}</span>
                 )}
               </div>
-              {clasesOrdenadas.length === 0 && <div style={styles.empty}>Aún no hay clases registradas.</div>}
+              {clasesOrdenadas.length === 0 && <EmptyState Icon={Receipt} text="Aún no hay clases registradas." />}
               {clasesOrdenadas.map((d) => {
                 const pagada = clasesPagadas.includes(d);
-                const chipStyle = {
-                  ...styles.pagoChip,
-                  background: pagada ? COLORS.ball : "transparent",
-                  color: pagada ? COLORS.ink : COLORS.amber,
-                  border: pagada ? "none" : `1.5px solid ${COLORS.amber}`,
-                };
                 return (
                   <div key={d} style={styles.pagoRow}>
                     <span style={styles.pagoFecha}>{fmt(d)}</span>
-                    {readOnly ? (
-                      <span style={chipStyle}>{pagada ? "Pagada" : "Pendiente"}</span>
-                    ) : (
-                      <button
-                        style={chipStyle}
-                        onClick={() => {
-                          const next = pagada ? clasesPagadas.filter((x) => x !== d) : [...clasesPagadas, d];
-                          onUpdate({ clasesPagadas: next });
-                        }}
-                      >
-                        {pagada ? "Pagada" : "Pendiente"}
-                      </button>
-                    )}
+                    <StatusTag
+                      tone={pagada ? "success" : "warning"}
+                      onClick={readOnly ? undefined : () => {
+                        const next = pagada ? clasesPagadas.filter((x) => x !== d) : [...clasesPagadas, d];
+                        onUpdate({ clasesPagadas: next });
+                      }}
+                    >
+                      {pagada ? "Pagada" : "Pendiente"}
+                    </StatusTag>
                   </div>
                 );
               })}
@@ -487,7 +480,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
                   <div style={styles.matchTop}>
                     <span style={styles.matchDate}>{fmt(p.fecha) || p.fecha}</span>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ ...styles.resultChip, background: p.resu === "W" ? COLORS.green : COLORS.border }}>
+                      <span style={{ ...styles.resultChip, background: p.resu === "W" ? COLORS.green : COLORS.border, color: p.resu === "W" ? COLORS.card : COLORS.ink }}>
                         {p.resu === "W" ? "GANÓ" : "PERDIÓ"}
                       </span>
                       {!readOnly && <button style={styles.deleteBtn} onClick={() => removeAt("partidos", i)} aria-label="Eliminar partido">×</button>}

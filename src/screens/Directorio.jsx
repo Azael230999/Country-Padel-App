@@ -1,11 +1,12 @@
 import { useState, useRef } from "react";
 import { Search } from "lucide-react";
 import { styles } from "../styles.js";
-import { COLORS, formatNivel } from "../constants.js";
+import { formatNivel } from "../constants.js";
 import { NavSwitcher } from "../components/NavSwitcher.jsx";
 import { MigrationBanner } from "../components/MigrationBanner.jsx";
 import { EditableRow } from "../components/EditableRow.jsx";
 import { EmptyState } from "../components/EmptyState.jsx";
+import { StatusTag } from "../components/StatusTag.jsx";
 
 export function Directorio({ students, busqueda, setBusqueda, onSelect, showNuevoAlumno, setShowNuevoAlumno, addStudent, onImportAll, coach, onUpdateCoach, migration, onMigrate, onDismissMigration, onSignOut, isAdmin, nav, setNav }) {
   const [nombre, setNombre] = useState("");
@@ -91,7 +92,7 @@ export function Directorio({ students, busqueda, setBusqueda, onSelect, showNuev
           <div style={{ ...styles.card, marginTop: 10 }}>
             <div style={styles.cardLabel}>Respaldo de datos</div>
             <p style={styles.backupHint}>Tus datos ya viven en la nube. Exporta una copia de vez en cuando por si acaso, o para pasarlos a otra cuenta.</p>
-            <button style={styles.addBtn} onClick={exportarDatos}>Exportar copia</button>
+            <button style={styles.secondaryBtn} onClick={exportarDatos}>Exportar copia</button>
             <button
               style={{ ...styles.secondaryBtnSmall, width: "100%", marginTop: 7 }}
               onClick={() => fileInputRef.current?.click()}
@@ -149,16 +150,16 @@ export function Directorio({ students, busqueda, setBusqueda, onSelect, showNuev
             />
           )}
           {filtrados.map((s) => {
-            let tagText, alerta;
+            let tagText, tone;
             if ((s.modalidad || "paquete") === "porClase") {
               const clasesPagadas = s.clasesPagadas || [];
               const pendientes = s.asistencias.filter((d) => !clasesPagadas.includes(d)).length;
               tagText = pendientes > 0 ? `${pendientes} pendiente${pendientes !== 1 ? "s" : ""}` : "al día";
-              alerta = pendientes > 0;
+              tone = pendientes > 0 ? "warning" : "success";
             } else {
               const restantes = s.paquete.finalizado ? 0 : s.paquete.total - s.paquete.usadas;
               tagText = s.paquete.finalizado ? "sin paquete" : `${restantes} clase${restantes !== 1 ? "s" : ""}`;
-              alerta = !s.paquete.finalizado && restantes <= 1;
+              tone = s.paquete.finalizado ? "error" : restantes <= 1 ? "warning" : "success";
             }
             return (
               <button key={s.id} onClick={() => onSelect(s.id)} style={styles.row}>
@@ -167,12 +168,7 @@ export function Directorio({ students, busqueda, setBusqueda, onSelect, showNuev
                   <div style={styles.nombre}>{s.nombre}</div>
                   <div style={styles.meta}>{s.grupo} · Nivel {formatNivel(s.nivel)}</div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ ...styles.restantesTag, color: alerta ? COLORS.red : COLORS.muted }}>
-                    {tagText}
-                  </span>
-                  {alerta && <span style={styles.alertaDot} />}
-                </div>
+                <StatusTag tone={tone}>{tagText}</StatusTag>
               </button>
             );
           })}
