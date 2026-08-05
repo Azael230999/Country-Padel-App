@@ -1,6 +1,7 @@
 import { styles } from "../styles.js";
 import { COLORS } from "../constants.js";
 import { NavSwitcher } from "../components/NavSwitcher.jsx";
+import { StatusTag } from "../components/StatusTag.jsx";
 
 const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -121,9 +122,9 @@ export function PagosPendientesScreen({ students, onBack, onSelectAlumno }) {
                 <div style={styles.nombre}>{alumno.nombre}</div>
                 <div style={styles.meta}>{(alumno.modalidad || "paquete") === "porClase" ? "Pago por clase" : alumno.paquete.nombre}</div>
               </div>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: info.tono === "red" ? COLORS.red : COLORS.amber, marginLeft: "auto" }}>
+              <StatusTag tone={info.tono === "red" ? "error" : "warning"} style={{ marginLeft: "auto" }}>
                 {info.texto}
-              </span>
+              </StatusTag>
             </button>
           ))}
         </div>

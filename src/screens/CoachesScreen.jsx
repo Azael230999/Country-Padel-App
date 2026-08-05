@@ -203,7 +203,7 @@ function CategoriaCard({ deporte, categorias, onRemoveCategoria, onRemoveDeporte
           onChange={(e) => setNueva(e.target.value)}
         />
         <button
-          style={{ ...styles.addBtn, width: "auto", padding: "9px 14px" }}
+          style={{ ...styles.secondaryBtn, width: "auto", padding: "9px 14px" }}
           disabled={!nueva.trim() || categorias.includes(nueva.trim())}
           onClick={() => { onAddCategoria(nueva.trim()); setNueva(""); }}
         >
@@ -223,7 +223,7 @@ function NuevoDeporteCard({ existentes, onAdd }) {
       <input style={styles.input} placeholder="Nombre del deporte" value={nombre} onChange={(e) => setNombre(e.target.value)} />
       <input style={styles.input} placeholder="Primera categoría" value={categoria} onChange={(e) => setCategoria(e.target.value)} />
       <button
-        style={styles.addBtn}
+        style={styles.secondaryBtn}
         disabled={!nombre.trim() || !categoria.trim() || existentes.includes(nombre.trim())}
         onClick={() => { onAdd(nombre.trim(), categoria.trim()); setNombre(""); setCategoria(""); }}
       >
