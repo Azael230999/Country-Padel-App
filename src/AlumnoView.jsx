@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { AlertCircle } from "lucide-react";
 import { watchStudentPublic, getCoachProfile } from "./data.js";
 import { PerfilAlumno } from "./screens/PerfilAlumno.jsx";
 import { styles, fontImport } from "./styles.js";
 import { COLORS } from "./constants.js";
+import { SkeletonBlock, SkeletonCard, SkeletonList } from "./components/Skeleton.jsx";
 
 export default function AlumnoView({ id }) {
   const [alumno, setAlumno] = useState(undefined); // undefined = cargando, null = no existe
@@ -29,7 +31,12 @@ export default function AlumnoView({ id }) {
       <div style={styles.app}>
         <style>{fontImport}</style>
         <div style={styles.loadingBox}>
-          <div className="spinner" style={styles.spinner} />
+          <div style={{ width: "100%", padding: 24 }}>
+            <SkeletonBlock width={140} height={16} radius={999} style={{ margin: "0 auto 20px" }} />
+            <SkeletonCard lines={2} />
+            <div style={{ height: 12 }} />
+            <SkeletonList rows={2} />
+          </div>
         </div>
       </div>
     );
@@ -40,10 +47,13 @@ export default function AlumnoView({ id }) {
       <div style={styles.app}>
         <style>{fontImport}</style>
         <div style={styles.loadingBox}>
-          <div style={{ fontSize: 14, color: COLORS.ink, textAlign: "center", lineHeight: 1.6 }}>
-            Este link ya no es válido.
-            <br />
-            Pídele a tu coach que te comparta uno nuevo.
+          <div style={{ textAlign: "center", padding: "0 20px" }}>
+            <AlertCircle size={26} strokeWidth={1.75} color={COLORS.muted} style={{ marginBottom: 10 }} />
+            <div style={{ fontSize: 14, color: COLORS.ink, textAlign: "center", lineHeight: 1.6 }}>
+              Este link ya no es válido.
+              <br />
+              Pídele a tu coach que te comparta uno nuevo.
+            </div>
           </div>
         </div>
       </div>

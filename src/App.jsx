@@ -41,6 +41,8 @@ import { PerfilAlumno } from "./screens/PerfilAlumno.jsx";
 import { CalendarioScreen } from "./screens/CalendarioScreen.jsx";
 import { EventoDetalle } from "./screens/EventoDetalle.jsx";
 import { HoyScreen, PagosPendientesScreen } from "./screens/HoyScreen.jsx";
+import { SkeletonBlock, SkeletonCard, SkeletonList } from "./components/Skeleton.jsx";
+import { ErrorState } from "./components/ErrorState.jsx";
 
 // Datos que vivían solo en este dispositivo antes de moverse a la nube.
 // Se usan una sola vez, para ofrecer migrarlos al primer inicio de sesión.
@@ -96,7 +98,7 @@ export default function CountryPadelApp() {
 
   useEffect(() => {
     if (!authUser || !coach || !isAdmin) return;
-    const unsub = watchGroupAssignments(academyId, setGroupAssignments, () => {});
+    const unsub = watchGroupAssignments(academyId, setGroupAssignments, () => setSaveError(true));
     return unsub;
   }, [authUser, coach, isAdmin, academyId]);
 
@@ -112,14 +114,14 @@ export default function CountryPadelApp() {
           setAcademyGrupos(grupos);
         }
       },
-      () => {}
+      () => setSaveError(true)
     );
     return unsub;
   }, [authUser, coach, isAdmin, academyId]);
 
   useEffect(() => {
     if (!authUser || !coach) return;
-    const unsub = watchGroupSchedule(academyId, setGroupSchedule, () => {});
+    const unsub = watchGroupSchedule(academyId, setGroupSchedule, () => setSaveError(true));
     return unsub;
   }, [authUser, coach, academyId]);
 
@@ -143,7 +145,7 @@ export default function CountryPadelApp() {
 
   useEffect(() => {
     if (!authUser || !coach || !isAdmin) return;
-    const unsub = watchAcademyCoaches(academyId, setAcademyCoaches, () => {});
+    const unsub = watchAcademyCoaches(academyId, setAcademyCoaches, () => setSaveError(true));
     return unsub;
   }, [authUser, coach, isAdmin, academyId]);
 
@@ -402,7 +404,12 @@ export default function CountryPadelApp() {
       <div style={styles.app} className="app-shell">
         <style>{fontImport}</style>
         <div style={styles.loadingBox} className="phone-shell">
-          <div className="spinner" style={styles.spinner} />
+          <div style={{ width: "100%", padding: 24 }}>
+            <SkeletonBlock width={120} height={12} style={{ marginBottom: 20 }} />
+            <SkeletonCard lines={2} />
+            <div style={{ height: 12 }} />
+            <SkeletonList rows={3} />
+          </div>
         </div>
       </div>
     );
@@ -417,7 +424,16 @@ export default function CountryPadelApp() {
       <div style={styles.app} className="app-shell">
         <style>{fontImport}</style>
         <div style={styles.loadingBox} className="phone-shell">
-          <div className="spinner" style={styles.spinner} />
+          {saveError ? (
+            <ErrorState text="No se pudo cargar tu información. Revisa tu conexión." />
+          ) : (
+            <div style={{ width: "100%", padding: 24 }}>
+              <SkeletonBlock width={120} height={12} style={{ marginBottom: 20 }} />
+              <SkeletonCard lines={2} />
+              <div style={{ height: 12 }} />
+              <SkeletonList rows={3} />
+            </div>
+          )}
         </div>
       </div>
     );
@@ -437,6 +453,7 @@ export default function CountryPadelApp() {
             isAdmin={isAdmin}
             students={students}
             eventos={academyEvents}
+            saveError={saveError}
             nav={view}
             setNav={setView}
             onVerPagos={() => setView("pagosPendientes")}
@@ -495,6 +512,7 @@ export default function CountryPadelApp() {
             grupos={academyGrupos || DEFAULT_GRUPOS}
             schedule={groupSchedule || {}}
             onUpdateSchedule={updateGroupSchedule}
+            saveError={saveError}
             nav={view}
             setNav={setView}
             onSelect={(id) => {
@@ -524,6 +542,7 @@ export default function CountryPadelApp() {
             grupos={academyGrupos || DEFAULT_GRUPOS}
             onUpdateGrupos={updateAcademyGrupos}
             alumnos={alumnosGrupo}
+            saveError={saveError}
             nav={view}
             setNav={setView}
             onAddCoach={addCoach}
@@ -534,6 +553,7 @@ export default function CountryPadelApp() {
             isAdmin={isAdmin}
             eventos={academyEvents}
             coaches={academyCoaches}
+            saveError={saveError}
             nav={view}
             setNav={setView}
             onSelect={(id) => {
@@ -547,6 +567,7 @@ export default function CountryPadelApp() {
           <EventoDetalle
             evento={(academyEvents || []).find((e) => e.id === selectedEventoId)}
             coaches={academyCoaches}
+            saveError={saveError}
             onBack={() => setView("calendario")}
             onUpdate={(patch) => updateEvento(selectedEventoId, patch)}
             onDelete={() => deleteEvento(selectedEventoId)}

@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { Crosshair } from "lucide-react";
 import { styles } from "../styles.js";
 import { EditableRow } from "../components/EditableRow.jsx";
 import { PuntoRow, NuevoPuntoForm } from "../components/Puntos.jsx";
+import { EmptyState } from "../components/EmptyState.jsx";
+import { SkeletonCard } from "../components/Skeleton.jsx";
 
 export function AlumnoGrupoDetalle({ alumno, academyCoaches, groupAssignments, grupos, onBack, onUpdate, onDelete }) {
   const [copiado, setCopiado] = useState(false);
@@ -16,7 +19,7 @@ export function AlumnoGrupoDetalle({ alumno, academyCoaches, groupAssignments, g
   if (!alumno) {
     return (
       <div style={styles.content} className="content-safe">
-        <div className="spinner" style={styles.spinner} />
+        <SkeletonCard lines={3} />
       </div>
     );
   }
@@ -79,6 +82,7 @@ export function AlumnoGrupoDetalle({ alumno, academyCoaches, groupAssignments, g
 
           <div style={styles.card}>
             <div style={styles.cardLabel}>Lo que necesita trabajar</div>
+            {(alumno.puntos || []).length === 0 && <EmptyState Icon={Crosshair} text="Aún no hay puntos por desarrollar." />}
             {(alumno.puntos || []).map((p, i) => (
               <PuntoRow key={i} punto={p} onDelete={() => onUpdate({ puntos: alumno.puntos.filter((_, j) => j !== i) })} />
             ))}

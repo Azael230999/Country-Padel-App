@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Clock, ClipboardList } from "lucide-react";
+import { Clock, ClipboardList, AlertCircle, Inbox } from "lucide-react";
 import { watchAcademyStudentPublic } from "./data.js";
 import { styles, fontImport } from "./styles.js";
 import { COLORS } from "./constants.js";
 import { PuntoRow } from "./components/Puntos.jsx";
 import { IconBadge } from "./components/IconBadge.jsx";
+import { SkeletonBlock, SkeletonCard } from "./components/Skeleton.jsx";
 
 export default function AlumnoGrupoView({ id }) {
   const [alumno, setAlumno] = useState(undefined); // undefined = cargando, null = no existe
@@ -23,7 +24,10 @@ export default function AlumnoGrupoView({ id }) {
       <div style={styles.app}>
         <style>{fontImport}</style>
         <div style={styles.loadingBox}>
-          <div className="spinner" style={styles.spinner} />
+          <div style={{ width: "100%", padding: 24 }}>
+            <SkeletonBlock width={140} height={16} radius={999} style={{ margin: "0 auto 20px" }} />
+            <SkeletonCard lines={2} />
+          </div>
         </div>
       </div>
     );
@@ -34,10 +38,13 @@ export default function AlumnoGrupoView({ id }) {
       <div style={styles.app}>
         <style>{fontImport}</style>
         <div style={styles.loadingBox}>
-          <div style={{ fontSize: 14, color: COLORS.ink, textAlign: "center", lineHeight: 1.6 }}>
-            Este link ya no es válido.
-            <br />
-            Pídele a tu coach que te comparta uno nuevo.
+          <div style={{ textAlign: "center", padding: "0 20px" }}>
+            <AlertCircle size={26} strokeWidth={1.75} color={COLORS.muted} style={{ marginBottom: 10 }} />
+            <div style={{ fontSize: 14, color: COLORS.ink, textAlign: "center", lineHeight: 1.6 }}>
+              Este link ya no es válido.
+              <br />
+              Pídele a tu coach que te comparta uno nuevo.
+            </div>
           </div>
         </div>
       </div>
@@ -92,7 +99,10 @@ export default function AlumnoGrupoView({ id }) {
               </div>
             )}
             {!alumno.horario && !alumno.plan && (alumno.puntos || []).length === 0 && (
-              <div style={styles.empty}>Tu coach todavía no ha agregado información aquí.</div>
+              <div style={{ textAlign: "center", padding: "34px 16px" }}>
+                <Inbox size={26} strokeWidth={1.75} color={COLORS.muted} style={{ marginBottom: 10 }} />
+                <div style={{ fontSize: 13, color: COLORS.muted, lineHeight: 1.5 }}>Tu coach todavía no ha agregado información aquí.</div>
+              </div>
             )}
           </div>
         </div>

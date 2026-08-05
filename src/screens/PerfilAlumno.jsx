@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { User, Target, CalendarCheck, Trophy, StickyNote } from "lucide-react";
+import { User, Target, CalendarCheck, Trophy, StickyNote, Flag, Crosshair, Receipt } from "lucide-react";
 import { styles } from "../styles.js";
 import { COLORS, fmt, formatNivel } from "../constants.js";
 import { EditableRow } from "../components/EditableRow.jsx";
@@ -195,6 +195,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
           <div style={styles.section}>
             <div style={styles.card}>
               <div style={styles.cardLabel}>Objetivos</div>
+              {alumno.objetivos.length === 0 && <EmptyState Icon={Flag} text="Aún no hay objetivos definidos." />}
               {alumno.objetivos.map((o, i) => (
                 <div key={i} style={styles.objetivoRow}>
                   <div>
@@ -236,6 +237,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
             {!readOnly && (
             <div style={styles.card}>
               <div style={styles.cardLabel}>Puntos por desarrollar</div>
+              {alumno.puntos.length === 0 && <EmptyState Icon={Crosshair} text="Aún no hay puntos por desarrollar." />}
               {alumno.puntos.map((p, i) => (
                 <PuntoRow key={i} punto={p} onDelete={() => removeAt("puntos", i)} />
               ))}
@@ -378,7 +380,7 @@ export function PerfilAlumno({ alumno, tab, setTab, onBack, onUpdate, onDelete, 
                   <span style={styles.pagoResumenPendientes}>{pendientesTotal} pendiente{pendientesTotal !== 1 ? "s" : ""}</span>
                 )}
               </div>
-              {clasesOrdenadas.length === 0 && <div style={styles.empty}>Aún no hay clases registradas.</div>}
+              {clasesOrdenadas.length === 0 && <EmptyState Icon={Receipt} text="Aún no hay clases registradas." />}
               {clasesOrdenadas.map((d) => {
                 const pagada = clasesPagadas.includes(d);
                 return (
