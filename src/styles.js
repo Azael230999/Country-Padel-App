@@ -2,10 +2,32 @@ import { COLORS, ELEVATION } from "./constants.js";
 
 export const fontImport = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Karla:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap');
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body, #root { height: 100%; }
+  html, body { overscroll-behavior: none; }
   body { margin: 0; }
-  input, textarea, select, button { -webkit-tap-highlight-color: transparent; }
+
+  /* Elementos de interfaz (botones, nav, headers) no son texto para
+     seleccionar/copiar — el contenido real (notas, comentarios) no lleva
+     esta regla, así que se queda seleccionable donde importa. */
+  button, .header-safe {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .header-safe input, .header-safe textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Anillo de foco propio en vez de quitarlo — solo aparece con teclado
+     (:focus-visible), no en cada tap. */
+  :focus { outline: none; }
+  :focus-visible {
+    outline: 2px solid ${COLORS.clay};
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 
   @media (max-width: 480px) {
     .app-shell { padding: 0 !important; align-items: stretch !important; }
@@ -37,7 +59,7 @@ export const styles = {
   backBtn: { background: "none", border: "none", color: COLORS.bg, fontSize: 13, cursor: "pointer", padding: 0, opacity: 0.85, fontFamily: "'Karla', sans-serif" },
   brand: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 12, letterSpacing: 2, opacity: 0.8 },
   titulo: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 24, marginTop: 8, marginBottom: 14 },
-  search: { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: COLORS.bg, fontSize: 13.5, fontFamily: "'Karla', sans-serif", outline: "none", marginBottom: 16 },
+  search: { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: COLORS.bg, fontSize: 13.5, fontFamily: "'Karla', sans-serif", marginBottom: 16 },
   playerRow: { display: "flex", alignItems: "center", gap: 14, paddingBottom: 16 },
   avatarBig: { width: 50, height: 50, borderRadius: "50%", background: COLORS.ball, color: COLORS.ink, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16, fontFamily: "'Fraunces', serif", flexShrink: 0 },
   playerName: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 19 },
@@ -48,10 +70,10 @@ export const styles = {
   tabs: { display: "flex", background: COLORS.bg, borderBottom: `1px solid ${COLORS.border}`, padding: "0 14px", overflowX: "auto", whiteSpace: "nowrap" },
   tabBtn: { background: "none", border: "none", padding: "13px 0", marginRight: 18, fontSize: 13.5, cursor: "pointer", position: "relative", fontFamily: "'Karla', sans-serif", flexShrink: 0 },
   tabIndicator: { position: "absolute", bottom: -1, left: 0, right: 0, height: 3, background: COLORS.clay, borderRadius: 2 },
-  content: { flex: 1, overflowY: "auto", padding: "16px 18px 30px", WebkitOverflowScrolling: "touch" },
+  content: { flex: 1, overflowY: "auto", padding: "16px 18px 30px", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" },
   section: { display: "flex", flexDirection: "column", gap: 12 },
   card: { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 14 },
-  cardLabel: { fontSize: 10.5, letterSpacing: 1, color: COLORS.muted, fontWeight: 700, marginBottom: 8, textTransform: "uppercase" },
+  cardLabel: { fontSize: 10.5, letterSpacing: 1, color: COLORS.muted, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", userSelect: "none" },
   row: { display: "flex", alignItems: "center", gap: 12, background: COLORS.card, border: `1.5px solid ${COLORS.border}`, borderRadius: 14, padding: 12, cursor: "pointer", width: "100%", fontFamily: "'Karla', sans-serif" },
   avatar: { width: 40, height: 40, borderRadius: "50%", background: "#F0E4D2", color: COLORS.ink, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, fontFamily: "'Fraunces', serif", flexShrink: 0 },
   nombre: { fontSize: 14, fontWeight: 700, color: COLORS.ink },
@@ -123,8 +145,8 @@ export const styles = {
   noteAuthor: { fontSize: 13, fontWeight: 700, color: COLORS.ink },
   noteDate: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.muted },
   noteText: { fontSize: 13, color: "#4A3F35", marginTop: 4, lineHeight: 1.5 },
-  input: { width: "100%", padding: "9px 10px", borderRadius: 9, border: `1px solid ${COLORS.border}`, fontSize: 13, fontFamily: "'Karla', sans-serif", marginBottom: 7, outline: "none", color: COLORS.ink },
-  textarea: { width: "100%", padding: "9px 10px", borderRadius: 9, border: `1px solid ${COLORS.border}`, fontSize: 13, fontFamily: "'Karla', sans-serif", marginBottom: 7, outline: "none", minHeight: 60, resize: "vertical", color: COLORS.ink },
+  input: { width: "100%", padding: "9px 10px", borderRadius: 9, border: `1px solid ${COLORS.border}`, fontSize: 13, fontFamily: "'Karla', sans-serif", marginBottom: 7, color: COLORS.ink },
+  textarea: { width: "100%", padding: "9px 10px", borderRadius: 9, border: `1px solid ${COLORS.border}`, fontSize: 13, fontFamily: "'Karla', sans-serif", marginBottom: 7, minHeight: 60, resize: "vertical", color: COLORS.ink },
   select: { padding: "9px 8px", borderRadius: 9, border: `1px solid ${COLORS.border}`, fontSize: 12.5, fontFamily: "'Karla', sans-serif", marginBottom: 7, color: COLORS.ink, background: "#fff" },
   miniForm: { marginTop: 10, borderTop: `1px solid ${COLORS.border}`, paddingTop: 10 },
   addBtn: { background: COLORS.clay, color: COLORS.card, border: "none", borderRadius: 9, padding: "9px 0", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "'Karla', sans-serif", width: "100%" },
