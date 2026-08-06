@@ -12,13 +12,21 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["apple-touch-icon.png"],
+      includeAssets: ["apple-touch-icon.png", "offline.html"],
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.js",
+      injectManifest: {
+        globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
+      },
       manifest: {
         name: "Country Padel",
         short_name: "Country Padel",
         description: "Gestión de alumnos, entrenamientos, asistencia y partidos.",
-        theme_color: "#12211F",
-        background_color: "#0F1E1C",
+        // Paleta "Cancha de arcilla": café oscuro de marca (COLORS.ink) y
+        // crema de fondo (COLORS.bg) — antes tenía verde de una paleta vieja.
+        theme_color: "#2A1D14",
+        background_color: "#F5EEE2",
         display: "standalone",
         orientation: "portrait",
         start_url: base,
@@ -28,9 +36,6 @@ export default defineConfig({
           { src: "icon-512.png", sizes: "512x512", type: "image/png" },
           { src: "icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
-      },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
       },
     }),
   ],
