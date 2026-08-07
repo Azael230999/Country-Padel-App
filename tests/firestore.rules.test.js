@@ -102,10 +102,48 @@ describe("coaches (perfil de academia)", () => {
     await assertSucceeds(getDoc(doc(dbAnon, "coaches", COACH1_UID)));
   });
 
-  it("un coach solo puede escribir su propio documento de perfil", async () => {
+  it("un coach solo puede escribir su propio documento de perfil, no el de uno ya existente de otro coach", async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, "coaches", COACH2_UID), { nombre: "Coach Dos", academyId: ADMIN_UID });
+    });
     const db1 = dbAs(COACH1_UID);
-    await assertSucceeds(setDoc(doc(db1, "coaches", COACH1_UID), { nombre: "Coach Uno", academyId: ADMIN_UID }));
-    await assertFails(setDoc(doc(db1, "coaches", COACH2_UID), { nombre: "Hackeado", academyId: ADMIN_UID }));
+    await assertSucceeds(setDoc(doc(db1, "coaches", COACH1_UID), { nombre: "Coach Uno", academyId: COACH1_UID }));
+    await assertFails(setDoc(doc(db1, "coaches", COACH2_UID), { nombre: "Hackeado", academyId: COACH1_UID }));
+  });
+
+  it("al registrarse, un coach nuevo solo puede crear su doc con su propio academyId (arranca como admin de su propia academia)", async () => {
+    const db1 = dbAs(COACH1_UID);
+    await assertSucceeds(setDoc(doc(db1, "coaches", COACH1_UID), { nombre: "Coach Uno", academyId: COACH1_UID }));
+  });
+
+  it("un coach nuevo NO puede crear su doc con el academyId de una academia ajena (el hueco que se cerró)", async () => {
+    const dbAttacker = dbAs("attacker1");
+    await assertFails(
+      setDoc(doc(dbAttacker, "coaches", "attacker1"), { nombre: "Atacante", academyId: ADMIN_UID })
+    );
+  });
+
+  it("el admin de una academia sí puede crear el doc de un coach nuevo con su academyId", async () => {
+    const dbAdmin = dbAs(ADMIN_UID);
+    await assertSucceeds(
+      setDoc(doc(dbAdmin, "coaches", "coachNuevo"), { nombre: "", email: "nuevo@x.com", academyId: ADMIN_UID, isAdmin: false })
+    );
+  });
+
+  it("un admin NO puede crear un doc de coach con el academyId de otra academia", async () => {
+    const dbAdmin = dbAs(ADMIN_UID);
+    await assertFails(
+      setDoc(doc(dbAdmin, "coaches", "coachAjeno"), { nombre: "", academyId: OTHER_ACADEMY_ADMIN_UID, isAdmin: false })
+    );
+  });
+
+  it("un coach no puede cambiar su propio academyId una vez creado", async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, "coaches", COACH1_UID), { nombre: "Coach Uno", academyId: ADMIN_UID });
+    });
+    const db1 = dbAs(COACH1_UID);
+    await assertFails(updateDoc(doc(db1, "coaches", COACH1_UID), { academyId: OTHER_ACADEMY_ADMIN_UID }));
+    await assertSucceeds(updateDoc(doc(db1, "coaches", COACH1_UID), { nombre: "Coach Uno Editado" }));
   });
 
   it("el admin puede listar los coaches de su propia academia", async () => {

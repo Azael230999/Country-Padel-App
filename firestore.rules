@@ -17,7 +17,25 @@ service cloud.firestore {
     match /coaches/{uid} {
       allow get: if true;
       allow list: if request.auth != null && resource.data.academyId == request.auth.uid;
-      allow write: if request.auth != null && request.auth.uid == uid;
+
+      // Un doc de coach nuevo puede crearlo: (a) la propia persona,
+      // registrándose y arrancando como admin de su propia academia nueva
+      // (mismo default que ya usa la app: academyId = su propio uid), o
+      // (b) el admin de una academia existente, dando de alta a alguien de
+      // su equipo con ese academyId. Sin esto, cualquiera podía crear su
+      // cuenta y ponerse el academyId de una academia ajena.
+      allow create: if request.auth != null && (
+        (request.auth.uid == uid && request.resource.data.academyId == uid) ||
+        isAcademyAdmin(request.resource.data.academyId)
+      );
+
+      // academyId no se puede cambiar después de creado — si se pudiera,
+      // cualquier coach podría "mudarse" de academia solo reescribiendo su
+      // propio documento y leer/aparecer donde no le corresponde.
+      allow update: if request.auth != null && request.auth.uid == uid &&
+        request.resource.data.academyId == resource.data.academyId;
+
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     match /students/{studentId} {

@@ -81,23 +81,27 @@ export function watchAcademyCoaches(academyId, callback, onError) {
 }
 
 // Crea la cuenta de un coach nuevo para la academia, sin afectar la sesión
-// del admin que la está creando.
+// del admin que la está creando. La cuenta de Auth se crea en una sesión
+// secundaria desechable, pero el doc de perfil lo escribe el admin en SU
+// PROPIA sesión (ya autenticada) — así la regla de seguridad puede
+// verificar que quien le asigna el academyId al coach nuevo es realmente
+// el admin de esa academia, no el coach asignándoselo a sí mismo.
 export async function createCoachAccount(academyId, email, password) {
-  return withSecondaryAuth(async (secondaryAuth, secondaryDb) => {
+  const uid = await withSecondaryAuth(async (secondaryAuth) => {
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-    const uid = cred.user.uid;
-    await setDoc(doc(secondaryDb, "coaches", uid), {
-      nombre: "",
-      rol: "Coach",
-      telefono: "",
-      email,
-      bio: "",
-      academyId,
-      isAdmin: false,
-    });
     await signOut(secondaryAuth);
-    return uid;
+    return cred.user.uid;
   });
+  await setDoc(doc(coachesCol, uid), {
+    nombre: "",
+    rol: "Coach",
+    telefono: "",
+    email,
+    bio: "",
+    academyId,
+    isAdmin: false,
+  });
+  return uid;
 }
 
 // ---------- Alumnos de grupo (clases grupales de la academia) ----------
